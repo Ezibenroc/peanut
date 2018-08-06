@@ -1,3 +1,7 @@
 Pipfile.lock
 .mypy_cache
 .ipynb_checkpoints
+build
+dist
+*.egg-info
+peanut/version.py

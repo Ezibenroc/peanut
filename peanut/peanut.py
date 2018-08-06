@@ -18,6 +18,7 @@ import io
 import argparse
 import lxml.etree
 import csv
+from version import __version__, __git_version__
 
 handler = colorlog.StreamHandler()
 formatter = colorlog.ColoredFormatter(
@@ -291,7 +292,10 @@ class Job:
         self.archive_name = '%s_%s_%d.zip' % (self.site,
                                               datetime.date.today(),
                                               self.jobid)
-        self.information = {}
+        self.information = {
+                    'peanut_version': __version__,
+                    'peanut_git_version': __git_version__,
+                }
 
     def __del__(self):
         if self.auto_oardel:
@@ -643,6 +647,10 @@ class Job:
                 raise ValueError('Not a positive integer.')
             return n
         parser = argparse.ArgumentParser(description='Peanut, the tiny job runner')
+        parser.add_argument('--version', action='version',
+                            version='%(prog)s {version}'.format(version=__version__))
+        parser.add_argument('--git-version', action='version',
+                            version='%(prog)s {version}'.format(version=__git_version__))
         sp = parser.add_subparsers(dest='command')
         sp.required = True
         sp_run = sp.add_parser('run', help='Run an experiment.')
