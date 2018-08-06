@@ -48,6 +48,12 @@ if __name__ == '__main__':
           author='Tom Cornebize',
           author_email='tom.cornebize@gmail.com',
           packages=['peanut'],
+          install_requires=[
+              'fabric',
+              'colorlog',
+              'pyyaml',
+              'lxml',
+          ],
           url='https://github.com/Ezibenroc/peanut',
           license='MIT',
           classifiers=[

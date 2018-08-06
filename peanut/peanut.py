@@ -18,7 +18,7 @@ import io
 import argparse
 import lxml.etree
 import csv
-from version import __version__, __git_version__
+from .version import __version__, __git_version__
 
 handler = colorlog.StreamHandler()
 formatter = colorlog.ColoredFormatter(

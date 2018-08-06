@@ -1,7 +1,7 @@
 import sys
 import itertools
 import random
-from peanut import Job
+from .peanut import Job
 
 
 class MPICalibration(Job):
