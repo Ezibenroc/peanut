@@ -48,6 +48,10 @@ if __name__ == '__main__':
           author='Tom Cornebize',
           author_email='tom.cornebize@gmail.com',
           packages=['peanut'],
+          entry_points={
+              'console_scripts': ['peanut = peanut.__main__:main',
+                                  ]
+          },
           install_requires=[
               'fabric',
               'colorlog',

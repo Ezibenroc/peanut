@@ -51,5 +51,5 @@ class MPICalibration(Job):
         return [{'operation': op, 'size': size} for op, size in exp]
 
 
-if __name__ == '__main__':
+def main():
     MPICalibration.main(sys.argv[1:])
