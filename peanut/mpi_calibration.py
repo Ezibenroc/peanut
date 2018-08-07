@@ -44,7 +44,7 @@ class MPICalibration(Job):
     @classmethod
     def gen_exp(self):
         op = ['Recv', 'Isend', 'PingPong', 'Wtime', 'Iprobe', 'Test']
-        sizes = {int(10**random.uniform(0, 7)) for _ in range(1000)}
+        sizes = {int(10**random.uniform(0, 6)) for _ in range(1000)}
         exp = list(itertools.product(op, sizes))
         exp *= 50
         random.shuffle(exp)

@@ -44,6 +44,10 @@ logger.addHandler(io_handler)
 logger.setLevel(logging.DEBUG)
 
 
+class PeanutError(Exception):
+    pass
+
+
 class Time:
     def __init__(self, hours=None, minutes=None, seconds=None):
         assert hours or minutes or seconds
@@ -258,6 +262,7 @@ class Nodes:
 
 
 class Job:
+    install_path = '~/.local/bin/peanut'
     expfile_types = {}
     auto_oardel = False
     deployment_images = ['debian9-x64-%s' % mode for mode in ['min', 'base', 'nfs', 'big']]
@@ -386,20 +391,31 @@ class Job:
         return '%s(%d)' % (self.__class__.__name__, self.jobid)
 
     @classmethod
+    def _check_install(cls, frontend):
+        name = 'frontend %s' % frontend.hostnames[0]
+        try:
+            version = frontend.run_unique('%s --git-version' % cls.install_path, hide_output=False).stdout.strip()
+        except fabric.exceptions.GroupException:
+            raise PeanutError('Peanut is not installed on the %s' % name)
+        version = version.split()[1]
+        if version != __git_version__:
+            err = '%s != %s' % (version[:5], __git_version__[:5])
+            raise PeanutError('Peanut version mismatch between the %s and the client: %s' % (name, err))
+
+    @classmethod
     def oarsub(cls, frontend, constraint, walltime, nb_nodes, *,
-               deploy=False, queue=None, immediate=True, script=None):
+               deploy=False, queue=None, script=None):
         name = random.choice('☕🥐')
-        date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         constraint = '%s/nodes=%d,walltime=%s' % (
             constraint, nb_nodes, walltime)
         deploy_str = '-t deploy ' if deploy else '-t allow_classic_ssh'
         queue_str = '-q %s ' % queue if queue else ''
         cmd = 'oarsub -n "%s" %s%s -l "%s"' % (name, queue_str, deploy_str, constraint)
-        if immediate:
-            cmd += ' -r "%s"' % date
         if script:
-            assert not immediate
             cmd += " '%s'" % script
+        else:
+            date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            cmd += ' -r "%s"' % date
         result = frontend.run_unique(cmd, hide_output=False)
         regex = re.compile('OAR_JOB_ID=(\d+)')
         jobid = int(regex.search(result.stdout).groups()[0])
@@ -407,13 +423,13 @@ class Job:
 
     @classmethod
     def oarsub_cluster(cls, username, cluster, walltime, nb_nodes, *,
-                       deploy=False, immediate=True, script=None):
+                       deploy=False, script=None):
         site = cls.sites[cluster]
         queue = cls.queues[cluster]
         frontend = cls.g5k_frontend(site, username)
         constraint = "{cluster in ('%s')}" % cluster
         return cls.oarsub(frontend, constraint, walltime, nb_nodes, deploy=deploy,
-                          queue=queue, immediate=immediate, script=script)
+                          queue=queue, script=script)
 
     @classmethod
     def _check_hostnames(cls, hostnames):
@@ -426,7 +442,7 @@ class Job:
 
     @classmethod
     def oarsub_hostnames(cls, username, hostnames, walltime, nb_nodes=None, *,
-                         deploy=False, immediate=True, script=None):
+                         deploy=False, script=None):
         cluster = cls._check_hostnames(hostnames)
         site = cls.sites[cluster]
         queue = cls.queues[cluster]
@@ -436,7 +452,7 @@ class Job:
         if nb_nodes is None:
             nb_nodes = len(hostnames)
         return cls.oarsub(frontend, constraint, walltime, nb_nodes, deploy=deploy,
-                          queue=queue, immediate=immediate, script=script)
+                          queue=queue, script=script)
 
     @classmethod
     def g5k_connection(cls, site, username):
@@ -630,7 +646,7 @@ class Job:
 
     @classmethod
     def parse_jobid(cls, jobid):
-        regex = '([a-z]+):(\d+)'
+        regex = 'f?([a-z]+):(\d+)'
         match = re.fullmatch(regex, jobid)
         if match is None:
             raise ValueError('Wrong format for jobid %s' % jobid)
@@ -664,6 +680,8 @@ class Job:
         sp_run.add_argument('--nbnodes', help='Number of nodes for the experiment.', type=positive_int, default=1)
         sp_run.add_argument('--expfile', help='File which describes the experiment.', required=True,
                             type=lambda f: ExpFile(filename=f, types=cls.expfile_types))
+        sp_run.add_argument('--batch', help='Whether to run this as a batch job or not.',
+                            action='store_true', default=False)
         sp_gen = sp.add_parser('generate', help='Generate an experiment file.')
         sp_gen.add_argument('filename', type=str, help='File to write the experiment.')
         return parser
@@ -691,21 +709,32 @@ class Job:
     def job_from_args(cls, args):
         user = args['username']
         deploy = args['deploy']
+        expfile = args['expfile']
         if 'cluster' in args:
-            job = cls.oarsub_cluster(user, cluster=args['cluster'], walltime=args['walltime'], nb_nodes=args['nbnodes'],
-                                     deploy=deploy)
+            cluster = args['cluster']
+            site = cls.sites[cluster]
         elif 'nodes' in args:
-            job = cls.oarsub_hostnames(user, hostnames=args['nodes'], walltime=args['walltime'],
-                                       nb_nodes=args['nbnodes'], deploy=deploy)
+            hostnames = args['nodes']
+            cluster = cls._check_hostnames(hostnames)
+            site = cls.sites[cluster]
         else:
-            assert 'jobid' in args
             site, jobid = args['jobid']
-            frontend = cls.g5k_frontend(site, user)
-            job = cls(args.jobid, frontend, deploy=deploy)
-        try:
-            job.expfile = args['expfile']
-        except KeyError:
-            logger.warning('No expfile was given')
+        frontend = cls.g5k_frontend(site, user)
+        if args['batch']:
+            script = cls.generate_batch_command(args, site)
+            cls._check_install(frontend)
+            frontend.write_files(expfile.raw_content, expfile.basename)
+        else:
+            script = None
+        if 'cluster' in args:
+            job = cls.oarsub_cluster(user, cluster=cluster, walltime=args['walltime'], nb_nodes=args['nbnodes'],
+                                     deploy=deploy, script=script)
+        elif 'nodes' in args:
+            job = cls.oarsub_hostnames(user, hostnames=hostnames, walltime=args['walltime'],
+                                       nb_nodes=args['nbnodes'], deploy=deploy, script=script)
+        else:
+            job = cls(jobid, frontend, deploy=deploy)
+        job.expfile = expfile
         return job
 
     def setup(self):
@@ -733,12 +762,16 @@ class Job:
 
     @classmethod
     def main(cls, args):
-        args = cls.parse_args(args)
-        if args['command'] == 'generate':
-            cls._main_generate(args)
-        else:
-            assert args['command'] == 'run'
-            cls._main_run(args)
+        try:
+            args = cls.parse_args(args)
+            if args['command'] == 'generate':
+                cls._main_generate(args)
+            else:
+                assert args['command'] == 'run'
+                cls._main_run(args)
+        except PeanutError as e:
+            logger.critical(e)
+            sys.exit(-1)
 
     @classmethod
     def _main_generate(cls, args):
@@ -750,14 +783,26 @@ class Job:
         start = time.time()
         logger.info('Starting a new job, args = %s' % args)
         job = cls.job_from_args(args)
-        logger.info('%s with %d nodes' % (job, len(job.hostnames)))
-        logger.info('Setting up')
-        job.setup()
-        logger.info('Running the experiment')
-        job.run_exp()
-        logger.info('Tearing down')
-        job.teardown()
+        if args['batch']:
+            logger.info('%s submitted' % job)
+        else:
+            logger.info('%s with %d nodes' % (job, len(job.hostnames)))
+            logger.info('Setting up')
+            job.setup()
+            logger.info('Running the experiment')
+            job.run_exp()
+            logger.info('Tearing down')
+            job.teardown()
         logger.info('Total time: %.2f seconds' % (time.time() - start))
+
+    @classmethod
+    def generate_batch_command(cls, args, site):
+        cmd = '%s %s run %s ' % (cls.install_path, cls.__name__, args['username'])
+        cmd += '--jobid %s:$OAR_JOB_ID ' % site
+        if args['deploy']:
+            cmd += '--deploy %s ' % args['deploy']
+        cmd += '--expfile %s' % args['expfile'].basename
+        return cmd
 
 
 class ExpFile:
