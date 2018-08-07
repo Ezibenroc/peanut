@@ -13,7 +13,7 @@ Job.auto_oardel = True
 class Util(unittest.TestCase):
     cluster = 'taurus'
     site = Job.sites[cluster]
-    nb_nodes = 4
+    nb_nodes = 3
     user = 'tocornebize'
 
 
