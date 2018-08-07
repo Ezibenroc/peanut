@@ -59,13 +59,21 @@ class Time:
         return '%.2d:%.2d:%.2d' % (self.hours, self.minutes, self.seconds)
 
     @classmethod
-    def parse(self, val):
+    def parse(cls, val):
         regex = '(\d\d):(\d\d):(\d\d)'
         match = re.fullmatch(regex, val)
         if match is None:
             raise ValueError('Wrong format for time %s' % val)
         h, m, s = match.groups()
-        return Time(hours=int(h), minutes=int(m), seconds=int(s))
+        return cls(hours=int(h), minutes=int(m), seconds=int(s))
+
+    @classmethod
+    def from_seconds(cls, seconds):
+        minutes = seconds // 60
+        seconds %= 60
+        hours = minutes // 60
+        minutes %= 60
+        return cls(hours=hours, minutes=minutes, seconds=seconds)
 
 
 class Nodes:
@@ -584,6 +592,7 @@ class Job:
         result['jobid'] = self.jobid
         result['deployment'] = self.deploy
         result['command'] = ' '.join(sys.argv)
+        result['replay_command'] = self.replay_command
         result.update(self.information)
         return result
 
@@ -704,6 +713,22 @@ class Job:
             if val is None:
                 del args[key]
         return args
+
+    @property
+    def replay_command(self):
+        stat = self.oarstat()
+        walltime = Time.from_seconds(stat['walltime'])
+        cmd = 'peanut %s run %s --batch ' % (self.__class__.__name__, self.user)
+        if self.deploy:
+            cmd += '--deploy %s ' % self.deploy
+        cmd += '--nodes %s ' % ' '.join(self.hostnames)
+        cmd += '--nbnodes %d ' % len(self.hostnames)
+        cmd += '--walltime %s ' % walltime
+        try:
+            cmd += '--expfile %s' % self.expfile.basename
+        except AttributeError:
+            pass
+        return cmd.strip()
 
     @classmethod
     def job_from_args(cls, args):
