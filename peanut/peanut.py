@@ -593,6 +593,7 @@ class Job:
         result['deployment'] = self.deploy
         result['command'] = ' '.join(sys.argv)
         result['replay_command'] = self.replay_command
+        result['expfile'] = self.expfile.basename
         result.update(self.information)
         return result
 
