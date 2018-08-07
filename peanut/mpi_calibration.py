@@ -42,10 +42,12 @@ class MPICalibration(Job):
         self.add_local_to_archive(path + '/exp')
 
     @classmethod
-    def gen_exp(self):
-        op = ['Recv', 'Isend', 'PingPong', 'Wtime', 'Iprobe', 'Test']
-        sizes = {int(10**random.uniform(0, 6)) for _ in range(1000)}
-        exp = list(itertools.product(op, sizes))
+    def gen_exp(cls):
+        op_com = ['Recv', 'Isend', 'PingPong']
+        op_test = ['Wtime', 'Iprobe', 'Test']
+        sizes_com = {int(10**random.uniform(0, 6)) for _ in range(1000)}
+        sizes_test = {int(10**random.uniform(0, 4)) for _ in range(50)}
+        exp = list(itertools.product(op_com, sizes_com)) + list(itertools.product(op_test, sizes_test))
         exp *= 50
         random.shuffle(exp)
         return [{'operation': op, 'size': size} for op, size in exp]
