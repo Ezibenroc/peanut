@@ -77,6 +77,10 @@ class Time:
         return cls(hours=hours, minutes=minutes, seconds=seconds)
 
 
+class RunError(Exception):
+    pass
+
+
 class Nodes:
 
     def __init__(self, nodes, name, working_dir, parent_nodes=None):
@@ -96,6 +100,17 @@ class Nodes:
         return copy.deepcopy(self.__history)
 
     def run(self, command, **kwargs):
+        def clean_dict(d, k):
+            values = set(d[k].values())
+            if len(values) == 0:
+                del d[k]
+            elif len(values) == 1:
+                val = values.pop()
+                if val != '':
+                    d[k] = val
+                else:
+                    del d[k]
+        error = False
         if 'directory' in kwargs:
             directory = os.path.join(self.working_dir, kwargs['directory'])
             del kwargs['directory']
@@ -106,7 +121,16 @@ class Nodes:
             kwargs['hide'] = True
         real_command = 'cd %s && %s' % (directory, command)
         start = datetime.datetime.now()
-        output = self.nodes.run(real_command, **kwargs)
+        try:
+            output = self.nodes.run(real_command, **kwargs)
+        except fabric.exceptions.GroupException as e:
+            output = {}
+            for node, res in e.result.items():
+                try:
+                    output[node] = res.result
+                except AttributeError:
+                    output[node] = res
+            error = True
         stop = datetime.datetime.now()
         hist_entry = {
                 'directory': directory,
@@ -115,6 +139,7 @@ class Nodes:
                 'command': command,
                 'stdout': {},
                 'stderr': {},
+                'return_code': {},
                 'date': {
                     'start': str(start),
                     'stop': str(stop),
@@ -122,23 +147,17 @@ class Nodes:
                 }
             }
         for node, node_output in output.items():
-            stdout = node_output.stdout.strip()
-            if stdout:
-                hist_entry['stdout'][node.host] = stdout
-            stderr = node_output.stderr.strip()
-            if stderr:
-                hist_entry['stderr'][node.host] = stderr
-        stdout = set(hist_entry['stdout'].values())
-        if len(stdout) == 0:
-            del hist_entry['stdout']
-        elif len(stdout) == 1:
-            hist_entry['stdout'] = stdout.pop()
-        stderr = set(hist_entry['stderr'].values())
-        if len(stderr) == 0:
-            del hist_entry['stderr']
-        elif len(stderr) == 1:
-            hist_entry['stderr'] = stderr.pop()
+            hist_entry['stdout'][node.host] = node_output.stdout.strip()
+            hist_entry['stderr'][node.host] = node_output.stderr.strip()
+            hist_entry['return_code'][node.host] = node_output.return_code
+            if node_output.return_code != 0:
+                error_msg = node_output.stderr
+        clean_dict(hist_entry, 'stdout')
+        clean_dict(hist_entry, 'stderr')
+        clean_dict(hist_entry, 'return_code')
         self.__history.append(hist_entry)
+        if error:
+            raise RunError(error_msg)
         return output
 
     def run_unique(self, *args, **kwargs):

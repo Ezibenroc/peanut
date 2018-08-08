@@ -8,6 +8,7 @@ import zipfile
 from datetime import datetime
 import itertools
 from peanut import Job, Time, Nodes, ExpFile
+from peanut.peanut import RunError
 
 Job.auto_oardel = True
 
@@ -89,6 +90,7 @@ class TestNodes(Util):
         other = Nodes([lyon], name='other', working_dir='/home/%s' % self.user, parent_nodes=allnodes)
         commands = {'pwd': (lambda nodes: nodes.working_dir),
                     'hostname': (lambda nodes: {n.host: 'f' + n.host for n in nodes})}
+
         tests = list(itertools.product([allnodes, other], commands.keys(), [True, False]))
         random.shuffle(tests)
         history = allnodes.history
@@ -120,6 +122,30 @@ class TestNodes(Util):
             self.assertEqual(date['duration'], (real_stop - real_start).total_seconds())
             self.assertAlmostEqual(0, (real_start - start).total_seconds(), delta=1e-3)
             self.assertAlmostEqual(0, (real_stop - stop).total_seconds(), delta=1e-3)
+            self.assertEqual(0, hist_entry['return_code'])
+
+    def test_errored_history(self):
+        lyon = Job.g5k_connection('lyon', self.user)
+        nancy = Job.g5k_connection('nancy', self.user)
+        rennes = Job.g5k_connection('rennes', self.user)
+        allnodes = Nodes([lyon, nancy, rennes], name='nodes', working_dir='/home/%s' % self.user)
+        other = Nodes([lyon], name='other', working_dir='/home/%s' % self.user, parent_nodes=allnodes)
+        allnodes.run('rm -rf bla')
+        with self.assertRaises(RunError):
+            allnodes.run('ls bla')
+        hist_entry = allnodes.history[-1]
+        self.assertEqual(hist_entry['return_code'], 2)
+        msg = "ls: cannot access 'bla': No such file or directory"
+        self.assertEqual(hist_entry['stderr'], msg)
+        other.run('touch bla')
+        with self.assertRaises(RunError):
+            allnodes.run('ls bla')
+        hist_entry = allnodes.history[-1]
+        self.assertEqual(hist_entry['return_code'], {'lyon': 0, 'nancy': 2, 'rennes': 2})
+        expected = {n: msg for n in ['nancy', 'rennes']}
+        expected['lyon'] = ''
+        self.assertEqual(hist_entry['stderr'], expected)
+        allnodes.run('rm -rf bla')
 
 
 class TestJob(Util):
