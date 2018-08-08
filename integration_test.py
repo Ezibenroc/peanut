@@ -5,6 +5,8 @@ import string
 import hashlib
 import os
 import zipfile
+from datetime import datetime
+import itertools
 from peanut import Job, Time, Nodes, ExpFile
 
 Job.auto_oardel = True
@@ -26,7 +28,6 @@ class TestBasic(Util):
 
 class TestNodes(Util):
     def assert_run(self, expected_result, *args, **kwargs):
-        kwargs['hide_output'] = False
         result = self.node.run(*args, **kwargs)
         self.assertEqual(len(result), 1)
         result = list(result.values())[0].stdout.strip()
@@ -80,6 +81,46 @@ class TestNodes(Util):
         self.node = Nodes([frontend], name='foo', working_dir='/home/%s' % self.user)
         self.assertEqual(self.node.hyperthreads, [1, 2, 3])  # might change if the frontend server of Lyon changes
 
+    def test_history(self):
+        lyon = Job.g5k_connection('lyon', self.user)
+        nancy = Job.g5k_connection('nancy', self.user)
+        rennes = Job.g5k_connection('rennes', self.user)
+        allnodes = Nodes([lyon, nancy, rennes], name='nodes', working_dir='/home/%s' % self.user)
+        other = Nodes([lyon], name='other', working_dir='/home/%s' % self.user, parent_nodes=allnodes)
+        commands = {'pwd': (lambda nodes: nodes.working_dir),
+                    'hostname': (lambda nodes: {n.host: 'f' + n.host for n in nodes})}
+        tests = list(itertools.product([allnodes, other], commands.keys(), [True, False]))
+        random.shuffle(tests)
+        history = allnodes.history
+        for i, (nodes, command, switch_std) in enumerate(tests):
+            real_command = command
+            if switch_std:
+                real_command = command + ' 3>&2 2>&1 1>&3'
+            start = datetime.now()
+            nodes.run(real_command)
+            stop = datetime.now()
+            old_history = history
+            history = nodes.history
+            self.assertEqual(len(history), i+1)
+            self.assertEqual(history[:i], old_history)
+            hist_entry = history[-1]
+            self.assertEqual(hist_entry['command'], real_command)
+            expected_output = commands[command](nodes)
+            if len(expected_output) == 1:
+                expected_output = list(expected_output.values())[0]
+            if not switch_std:
+                self.assertEqual(hist_entry['stdout'], expected_output)
+                self.assertNotIn('stderr', hist_entry)
+            else:
+                self.assertEqual(hist_entry['stderr'], expected_output)
+                self.assertNotIn('stdout', hist_entry)
+            date = hist_entry['date']
+            real_start = datetime.strptime(date['start'], '%Y-%m-%d %H:%M:%S.%f')
+            real_stop = datetime.strptime(date['stop'], '%Y-%m-%d %H:%M:%S.%f')
+            self.assertEqual(date['duration'], (real_stop - real_start).total_seconds())
+            self.assertAlmostEqual(0, (real_start - start).total_seconds(), delta=1e-3)
+            self.assertAlmostEqual(0, (real_stop - stop).total_seconds(), delta=1e-3)
+
 
 class TestJob(Util):
 
@@ -90,7 +131,7 @@ class TestJob(Util):
                                  nb_nodes=self.nb_nodes,
                                  deploy=False,
                                  )
-        result = job.frontend.run_unique('hostname -f', hide_output=False).stdout.strip()
+        result = job.frontend.run_unique('hostname -f').stdout.strip()
         self.assertEqual(result, 'f%s.%s.grid5000.fr' % (self.site, self.site))
         hosts = job.hostnames
         jobs = Job.get_jobs(self.site, self.user)
@@ -99,10 +140,10 @@ class TestJob(Util):
         for host in hosts:
             self.assertEqual(host[:len(self.cluster)], self.cluster)
         self.assertEqual(set(job.hostnames), set(job.nodes.hostnames))
-        result = job.nodes.run('hostname -f', hide_output=False)
+        result = job.nodes.run('hostname -f')
         for node, res in result.items():
             self.assertEqual(node.host, res.stdout.strip())
-        result = job.nodes.run_unique('pwd', hide_output=False)
+        result = job.nodes.run_unique('pwd')
         self.assertEqual(result.stdout.strip(), '/tmp')
         expected_cores = [[i, i+12] for i in list(range(0, 12, 2)) + list(range(1, 12, 2))]
         self.assertEqual(job.nodes.cores, expected_cores)
@@ -122,7 +163,7 @@ class TestJob(Util):
         job.add_information_to_archive()
         job.get_archive()
         archive = zipfile.ZipFile(job.archive_name)
-        for name in ['info.yaml', 'oarstat.yaml', 'commands.log']:
+        for name in ['info.yaml', 'oarstat.yaml', 'commands.log', 'history.json']:
             self.assertIn(name, archive.namelist())
         for host in job.hostnames:
             for name in ['cpuinfo.txt', 'environment.txt', 'topology.xml', 'topology.pdf', 'lspci.txt',
@@ -157,7 +198,7 @@ class TestJob(Util):
         self.assertEqual(new_info, info)
 
     def assert_run(self, expected_result, cmd):
-        result = self.job.nodes.run_unique(cmd, hide_output=False).stdout.strip()
+        result = self.job.nodes.run_unique(cmd).stdout.strip()
         self.assertEqual(result, expected_result)
 
     def test_job_deploy(self):

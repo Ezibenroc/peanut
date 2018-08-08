@@ -15,6 +15,7 @@ import yaml
 import random
 import json
 import io
+import copy
 import argparse
 import lxml.etree
 import csv
@@ -77,13 +78,22 @@ class Time:
 
 
 class Nodes:
-    def __init__(self, nodes, name, working_dir):
+
+    def __init__(self, nodes, name, working_dir, parent_nodes=None):
         self.nodes = fabric.ThreadingGroup.from_connections(nodes)
         self.name = name
         self.working_dir = working_dir
+        if parent_nodes is None:
+            self.__history = []
+        else:
+            self.__history = parent_nodes.__history
 
     def __iter__(self):
         yield from self.nodes
+
+    @property
+    def history(self):
+        return copy.deepcopy(self.__history)
 
     def run(self, command, **kwargs):
         if 'directory' in kwargs:
@@ -94,14 +104,42 @@ class Nodes:
         logger.debug('[%s | %s] %s' % (self.name, directory, command))
         if 'hide' not in kwargs:
             kwargs['hide'] = True
-        command = 'cd %s && %s' % (directory, command)
-        if 'hide_output' in kwargs:
-            if kwargs['hide_output']:
-                command = '%s &> /dev/null' % command
-            del kwargs['hide_output']
-        else:  # hide output by default
-            command = '%s &> /dev/null' % command
-        return self.nodes.run(command, **kwargs)
+        real_command = 'cd %s && %s' % (directory, command)
+        start = datetime.datetime.now()
+        output = self.nodes.run(real_command, **kwargs)
+        stop = datetime.datetime.now()
+        hist_entry = {
+                'directory': directory,
+                'nodes_type': self.name,
+                'hostnames': self.hostnames,
+                'command': command,
+                'stdout': {},
+                'stderr': {},
+                'date': {
+                    'start': str(start),
+                    'stop': str(stop),
+                    'duration': (stop-start).total_seconds()
+                }
+            }
+        for node, node_output in output.items():
+            stdout = node_output.stdout.strip()
+            if stdout:
+                hist_entry['stdout'][node.host] = stdout
+            stderr = node_output.stderr.strip()
+            if stderr:
+                hist_entry['stderr'][node.host] = stderr
+        stdout = set(hist_entry['stdout'].values())
+        if len(stdout) == 0:
+            del hist_entry['stdout']
+        elif len(stdout) == 1:
+            hist_entry['stdout'] = stdout.pop()
+        stderr = set(hist_entry['stderr'].values())
+        if len(stderr) == 0:
+            del hist_entry['stderr']
+        elif len(stderr) == 1:
+            hist_entry['stderr'] = stderr.pop()
+        self.__history.append(hist_entry)
+        return output
 
     def run_unique(self, *args, **kwargs):
         result = list(self.run(*args, **kwargs).values())
@@ -191,7 +229,7 @@ class Nodes:
         return self.__process_cache(xml)
 
     def __get_platform_xml(self):
-        result = self.run('lstopo topology.xml && cat topology.xml', hide_output=False)
+        result = self.run('lstopo topology.xml && cat topology.xml')
         xml = {}
         for node, output in result.items():
             xml[node] = lxml.etree.fromstring(output.stdout.encode('utf8'))
@@ -220,16 +258,16 @@ class Nodes:
         try:
             return self.__frequency_information
         except AttributeError:
-            freq = self.run_unique('cpufreq-info -l', hide_output=False).stdout
+            freq = self.run_unique('cpufreq-info -l').stdout
             min_f, max_f = [int(f) for f in freq.split()]
-            governors = self.run_unique('cpufreq-info -g', hide_output=False).stdout.split()
+            governors = self.run_unique('cpufreq-info -g').stdout.split()
             tuple_cls = collections.namedtuple('frequency_information', ['governor', 'min_freq', 'max_freq'])
             self.__frequency_information = tuple_cls(tuple(governors), min_f, max_f)
             return self.__frequency_information
 
     @property
     def current_frequency_information(self):
-            info = self.run_unique('cpufreq-info -p', hide_output=False).stdout.split()
+            info = self.run_unique('cpufreq-info -p').stdout.split()
             tuple_cls = collections.namedtuple('frequency_information', ['governor', 'min_freq', 'max_freq'])
             return tuple_cls(info[2], int(info[0]), int(info[1]))
 
@@ -341,13 +379,13 @@ class Job:
         return '/var/lib/oar/%d' % self.jobid
 
     def oarstat(self):
-        result = self.frontend.run_unique('oarstat -fJ -j %d' % self.jobid, hide_output=False)
+        result = self.frontend.run_unique('oarstat -fJ -j %d' % self.jobid)
         return json.loads(result.stdout)[str(self.jobid)]
 
     @classmethod
     def _oarstat_user(cls, frontend):
         try:
-            result = frontend.run_unique('oarstat -J -u', hide_output=False)
+            result = frontend.run_unique('oarstat -J -u')
         except fabric.exceptions.GroupException as e:  # no job
             return {}
         return json.loads(result.stdout)
@@ -402,7 +440,7 @@ class Job:
     def _check_install(cls, frontend):
         name = 'frontend %s' % frontend.hostnames[0]
         try:
-            version = frontend.run_unique('%s --git-version' % cls.install_path, hide_output=False).stdout.strip()
+            version = frontend.run_unique('%s --git-version' % cls.install_path).stdout.strip()
         except fabric.exceptions.GroupException:
             raise PeanutError('Peanut is not installed on the %s' % name)
         version = version.split()[1]
@@ -424,7 +462,7 @@ class Job:
         else:
             date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             cmd += ' -r "%s"' % date
-        result = frontend.run_unique(cmd, hide_output=False)
+        result = frontend.run_unique(cmd)
         regex = re.compile('OAR_JOB_ID=(\d+)')
         jobid = int(regex.search(result.stdout).groups()[0])
         return cls(jobid, frontend=frontend, deploy=deploy)
@@ -499,24 +537,28 @@ class Job:
                 user = self.user
             connections = [fabric.Connection(host, user=user, gateway=self.frontend.nodes[0])
                            for host in self.hostnames]
-            self.__nodes = Nodes(connections, name='allnodes', working_dir='/tmp')
-            self.orchestra = Nodes(connections[1:], name='orchestra', working_dir='/tmp')
-            self.director = Nodes([connections[0]], name='director', working_dir='/tmp')
+            self.__nodes = Nodes(connections, name='allnodes', working_dir='/tmp', parent_nodes=self.frontend)
+            self.orchestra = Nodes(connections[1:], name='orchestra', working_dir='/tmp', parent_nodes=self.__nodes)
+            self.director = Nodes([connections[0]], name='director', working_dir='/tmp', parent_nodes=self.__nodes)
             self.__open_nodes_connection()
             return self.__nodes
 
+    @property
+    def history(self):
+        return self.frontend.history
+
     def apt_install(self, *packages):
         sudo = 'sudo-g5k ' if not self.deploy else ''
-        cmd = '{0}apt update && {0}DEBIAN_FRONTEND=noninteractive apt upgrade -yq'.format(sudo)
+        cmd = '{0}apt update -qq && {0}DEBIAN_FRONTEND=noninteractive apt upgrade -qq -y'.format(sudo)
         self.nodes.run(cmd)
-        cmd = sudo + 'DEBIAN_FRONTEND=noninteractive apt install -y %s' % ' '.join(packages)
+        cmd = sudo + 'DEBIAN_FRONTEND=noninteractive apt install -qq -y %s' % ' '.join(packages)
         self.nodes.run(cmd)
         return self
 
     def __add_raw_information_to_archive(self, filename, command):
         if not self.deploy:
             command = 'sudo-g5k %s' % command
-        self.nodes.run(command, hide_output=False)
+        self.nodes.run(command)
         self.director.run('cp %s information/%s' % (filename, self.director.hostnames[0]))
         for host in self.hostnames:
             if host == self.director.hostnames[0]:
@@ -542,7 +584,7 @@ class Job:
     def _arp_information(self):
         result = {host: {} for host in self.hostnames}
         arp_cmd = 'arp -a' if self.deploy else 'sudo-g5k arp -a'
-        arp_output = self.nodes.run(arp_cmd, hide_output=False)
+        arp_output = self.nodes.run(arp_cmd)
         for node, arp in arp_output.items():
             arp_dict = {}
             for line in arp.stdout.strip().split('\n'):
@@ -572,7 +614,7 @@ class Job:
         result = {host: {} for host in self.hostnames}
         for cmd_name, cmd in commands.items():
             try:
-                output = self.nodes.run(cmd, hide_output=False)
+                output = self.nodes.run(cmd)
             except fabric.exceptions.GroupException:
                 logger.warning('Could not get information about %s, the command errored.' % cmd_name)
                 continue
@@ -616,15 +658,17 @@ class Job:
         job_info = self.platform_information()
         self.add_content_to_archive(yaml.dump(job_info, default_flow_style=False), 'info.yaml')
         self.add_content_to_archive(yaml.dump(self.oarstat(), default_flow_style=False), 'oarstat.yaml')
-        log = log_stream.getvalue()
-        log = log.encode('ascii', 'ignore').decode()  # removing any non-ascii character
-        self.add_content_to_archive(log, 'commands.log')
         try:
             expfile = self.expfile
         except AttributeError:  # no expfile
             pass
         else:
             self.add_content_to_archive(expfile.raw_content, expfile.basename)
+        log = log_stream.getvalue()
+        log = log.encode('ascii', 'ignore').decode()  # removing any non-ascii character
+        self.add_content_to_archive(log, 'commands.log')
+        history = json.dumps(self.history, indent=2, sort_keys=True)
+        self.add_content_to_archive(history, 'history.json')
 
     def get_archive(self):
         self.director.get(self.archive_name, self.archive_name)
@@ -637,7 +681,7 @@ class Job:
         self.director.get('/root/.ssh/id_rsa.pub', tmp_file.name)
         self.orchestra.put(tmp_file.name, '/tmp/id_rsa.pub')
         tmp_file.close()
-        self.orchestra.run('cat /tmp/id_rsa.pub >> .ssh/authorized_keys', hide_output=False, directory='/root')
+        self.orchestra.run('cat /tmp/id_rsa.pub >> .ssh/authorized_keys', directory='/root')
         for host in self.orchestra.hostnames:
             self.director.run('ssh -o "StrictHostKeyChecking no" %s hostname' % host, directory='/root')
             short_target = host[:host.find('.')]
@@ -647,7 +691,7 @@ class Job:
         self.nodes.run('git clone %s %s' % (url, repository_path))
         if checkout:
             self.nodes.run('git checkout %s' % checkout, directory=repository_path)
-        git_hash = self.nodes.run_unique('git rev-parse HEAD', directory=repository_path, hide_output=False)
+        git_hash = self.nodes.run_unique('git rev-parse HEAD', directory=repository_path)
         git_hash = git_hash.stdout.strip()
         key_name = 'git_repositories'
         if key_name not in self.information:
@@ -769,8 +813,7 @@ class Job:
         self.nodes  # triggering nodes instanciation, a bit dirty FIXME
         # Creating an empty zip archive on the director node
         # See https://stackoverflow.com/a/50091682/4110059
-        self.director.run('echo UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA== | base64 -d > %s' % self.archive_name,
-                          hide_output=False)
+        self.director.run('echo UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA== | base64 -d > %s' % self.archive_name)
         if self.deploy:
             self.send_key()
 
