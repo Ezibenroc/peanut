@@ -405,7 +405,7 @@ class Job:
     def _oarstat_user(cls, frontend):
         try:
             result = frontend.run_unique('oarstat -J -u')
-        except fabric.exceptions.GroupException as e:  # no job
+        except RunError as e:  # no job
             return {}
         return json.loads(result.stdout)
 
@@ -460,7 +460,7 @@ class Job:
         name = 'frontend %s' % frontend.hostnames[0]
         try:
             version = frontend.run_unique('%s --git-version' % cls.install_path).stdout.strip()
-        except fabric.exceptions.GroupException:
+        except RunError:
             raise PeanutError('Peanut is not installed on the %s' % name)
         version = version.split()[1]
         if version != __git_version__:
@@ -539,7 +539,7 @@ class Job:
         while True:
             try:
                 self.nodes.run('echo "hello world"')
-            except fabric.exceptions.GroupException:
+            except RunError:
                 time.sleep(sleep_time + random.uniform(0, sleep_time/5))
                 sleep_time = min(sleep_time*2, 60)
             else:
@@ -634,7 +634,7 @@ class Job:
         for cmd_name, cmd in commands.items():
             try:
                 output = self.nodes.run(cmd)
-            except fabric.exceptions.GroupException:
+            except RunError:
                 logger.warning('Could not get information about %s, the command errored.' % cmd_name)
                 continue
             for host, res in output.items():
@@ -643,7 +643,7 @@ class Job:
                 logger.warning('Different settings found for %s (command %s)' % (cmd_name, cmd))
         try:
             arp_result = self._arp_information()
-        except fabric.exceptions.GroupException:
+        except RunError:
             logger.warning('Could not get information about arp, the command errored.')
         else:
             for key, value in arp_result.items():
