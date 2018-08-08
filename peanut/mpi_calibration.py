@@ -1,4 +1,3 @@
-import sys
 import itertools
 import random
 from .peanut import Job
@@ -51,7 +50,3 @@ class MPICalibration(Job):
         exp *= 50
         random.shuffle(exp)
         return [{'operation': op, 'size': size} for op, size in exp]
-
-
-def main():
-    MPICalibration.main(sys.argv[1:])
