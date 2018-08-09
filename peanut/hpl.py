@@ -136,14 +136,24 @@ class HPL(Job):
         results = ExpFile(content=results, filename='results.csv')
         self.add_content_to_archive(results.raw_content, 'results.csv')
 
+    @staticmethod
+    def fact_design(factors):
+        names, values = zip(*factors.items())
+        designs = list(itertools.product(*factors.values()))
+        for i in range(len(designs)):
+            designs[i] = {n: v for n, v in zip(names, designs[i])}
+        return designs
+
     @classmethod
     def gen_exp(cls):
-        exp = {key: 0 for key in cls.expfile_types}
-        exp['proc_p'] = 2
-        exp['proc_q'] = 2
-        exp['matrix_size'] = 2**14
-        exp['block_size'] = 128
-        return [exp]
+        factors = dict(cls.expfile_sets)
+        factors['matrix_size'] = [2**14]
+        factors['block_size'] = [2**n for n in range(7, 10)]
+        factors['proc_p'] = [2]
+        factors['proc_q'] = [2]
+        exp = cls.fact_design(factors)
+        random.shuffle(exp)
+        return exp
 
     @property
     def makefile(self):
