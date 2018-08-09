@@ -6,17 +6,24 @@ from .peanut import Job, logger, ExpFile
 
 class HPL(Job):
     hpl_dir = 'hpl-2.2'
-    expfile_types = {'matrix_size': int,
-                     'block_size': int,
-                     'proc_p': int,
-                     'proc_q': int,
-                     'pfact': int,
-                     'rfact': int,
-                     'bcast': int,
-                     'depth': int,
-                     'swap': int,
-                     'mem_align': int,
-                     }
+    expfile_sets = {'matrix_size': range(1, 2**30),
+                    'block_size': range(1, 2**12),
+                    'proc_p': range(1, 2**16),
+                    'proc_q': range(1, 2**16),
+                    'pfact': range(0, 3),
+                    'rfact': range(0, 3),
+                    'bcast': range(0, 6),
+                    'depth': range(0, 2),
+                    'swap': range(0, 3),
+                    'mem_align': [4, 8]
+                    }
+    expfile_types = {fact: int for fact in expfile_sets}
+
+    @classmethod
+    def check_exp(cls, exp):
+        for fact, allowed_val in cls.expfile_sets.items():
+            if exp[fact] not in allowed_val:
+                raise ValueError('Error with exp %s: wrong value for factor %s (%s).' % (exp, fact, exp[fact]))
 
     def setup(self):
         super().setup()

@@ -5,6 +5,16 @@ from .peanut import Job
 
 class MPICalibration(Job):
     expfile_types = {'size': int, 'operation': str}
+    op_com = ['Recv', 'Isend', 'PingPong']
+    op_test = ['Wtime', 'Iprobe', 'Test']
+    all_op = op_com + op_test
+
+    @classmethod
+    def check_exp(cls, exp):
+        if exp['size'] < 0:
+            raise ValueError('Error with experiment %s, negative size.' % exp)
+        if exp['operation'] not in cls.all_op:
+            raise ValueError('Error with experiment %s, unknown operation.' % exp)
 
     def setup(self):
         super().setup()
@@ -42,11 +52,9 @@ class MPICalibration(Job):
 
     @classmethod
     def gen_exp(cls):
-        op_com = ['Recv', 'Isend', 'PingPong']
-        op_test = ['Wtime', 'Iprobe', 'Test']
         sizes_com = {int(10**random.uniform(0, 6)) for _ in range(1000)}
         sizes_test = {int(10**random.uniform(0, 4)) for _ in range(50)}
-        exp = list(itertools.product(op_com, sizes_com)) + list(itertools.product(op_test, sizes_test))
+        exp = list(itertools.product(cls.op_com, sizes_com)) + list(itertools.product(cls.op_test, sizes_test))
         exp *= 50
         random.shuffle(exp)
         return [{'operation': op, 'size': size} for op, size in exp]

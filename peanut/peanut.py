@@ -804,6 +804,11 @@ class Job:
         user = args['username']
         deploy = args['deploy']
         expfile = args['expfile']
+        try:
+            cls.check_expfile(expfile)
+        except ValueError as e:
+            sys.exit(e)
+        sys.exit()
         if 'cluster' in args:
             cluster = args['cluster']
             site = cls.sites[cluster]
@@ -896,6 +901,15 @@ class Job:
             cmd += '--deploy %s ' % args['deploy']
         cmd += '--expfile %s' % args['expfile'].basename
         return cmd
+
+    @classmethod
+    def check_exp(cls, exp):
+        pass
+
+    @classmethod
+    def check_expfile(cls, expfile):
+        for exp in expfile:
+            cls.check_exp(exp)
 
 
 class ExpFile:
