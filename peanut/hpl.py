@@ -50,6 +50,8 @@ class HPL(Job):
         self.nodes.write_files(self.makefile, os.path.join(self.hpl_dir, 'Make.Debian'))
         self.nodes.run('make startup arch=Debian', directory=self.hpl_dir)
         self.nodes.run('LD_LIBRARY_PATH=/tmp/lib make -j 64 arch=Debian', directory=self.hpl_dir)
+        self.nodes.enable_hyperthreading()
+        self.nodes.set_frequency_performance()
 
     @staticmethod
     def generate_hpl_file(*, matrix_size, block_size, proc_p, proc_q, pfact, rfact, bcast, depth, swap, mem_align):
