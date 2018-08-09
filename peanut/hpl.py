@@ -1,7 +1,8 @@
 import itertools
 import os
 import random
-from .peanut import Job, logger, ExpFile
+import time
+from .peanut import Job, logger, ExpFile, Time
 
 
 class HPL(Job):
@@ -116,8 +117,8 @@ class HPL(Job):
         nb_cores = len(self.nodes.cores)
         hosts = ','.join(self.hostnames)
         results = []
+        start = time.time()
         for i, exp in enumerate(self.expfile):
-            logger.debug('Experiment %d / %d' % (i+1, len(self.expfile)))
             proc_p = exp['proc_p']
             proc_q = exp['proc_q']
             nb_proc = proc_p * proc_q
@@ -130,11 +131,21 @@ class HPL(Job):
             cmd += ' -x LD_LIBRARY_PATH=/tmp/lib ./xhpl'
             cmd = cmd % (nb_proc, nb_cores, hosts)
             output = self.director.run_unique(cmd, directory=self.hpl_dir+'/bin/Debian')
-            time, gflops = self.parse_hpl(output.stdout)
+            total_time, gflops = self.parse_hpl(output.stdout)
             new_res = dict(exp)
-            new_res['time'] = time
+            new_res['time'] = total_time
             new_res['gflops'] = gflops
             results.append(new_res)
+            ellapsed = time.time() - start
+            exp_i = i+1
+            speed = exp_i/ellapsed
+            rest = (len(self.expfile)-exp_i)/speed
+            if rest > 0:
+                rest = Time.from_seconds(rest)
+                time_info = ' | estimated remaining time: %s' % rest
+            else:
+                time_info = ''
+            logger.debug('Done experiment %d / %d%s' % (i+1, len(self.expfile), time_info))
         results = ExpFile(content=results, filename='results.csv')
         self.add_content_to_archive(results.raw_content, 'results.csv')
 

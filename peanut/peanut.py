@@ -422,7 +422,9 @@ class Job:
         for jobid, job_stat in stat.items():
             if job_stat['state'] in ('Running', 'Waiting'):
                 job = int(jobid)
-                deploy = 'deploy' in job_stat['types']
+                deploy = None
+                if 'deploy' in job_stat['types']:
+                    deploy = 'debian9-x64-base'
                 jobs.append(cls(job, frontend, deploy=deploy))
         if len(jobs) == 0:
             raise ValueError('No jobs were found for user %s on site %s' % (username, site))
@@ -808,7 +810,6 @@ class Job:
             cls.check_expfile(expfile)
         except ValueError as e:
             sys.exit(e)
-        sys.exit()
         if 'cluster' in args:
             cluster = args['cluster']
             site = cls.sites[cluster]
