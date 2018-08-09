@@ -3,10 +3,15 @@ import zipfile
 import yaml
 import os
 from .mpi_calibration import MPICalibration
+from .hpl import HPL
 from .version import __version__, __git_version__
 
+classes = [
+    MPICalibration,
+    HPL
+]
 
-entry_points = {cls.__name__: cls.main for cls in [MPICalibration]}
+entry_points = {cls.__name__: cls.main for cls in classes}
 
 
 def replay(args):

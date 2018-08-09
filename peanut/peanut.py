@@ -131,6 +131,7 @@ class Nodes:
                 except AttributeError:
                     output[node] = res
             error = True
+            error_msg = ''
         stop = datetime.datetime.now()
         hist_entry = {
                 'directory': directory,
@@ -151,12 +152,16 @@ class Nodes:
             hist_entry['stderr'][node.host] = node_output.stderr.strip()
             hist_entry['return_code'][node.host] = node_output.return_code
             if node_output.return_code != 0:
-                error_msg = node_output.stderr
+                if node_output.stderr.strip():
+                    error_msg = node_output.stderr
+                if node_output.stdout.strip():
+                    error_msg_stdout = node_output.stdout
         clean_dict(hist_entry, 'stdout')
         clean_dict(hist_entry, 'stderr')
         clean_dict(hist_entry, 'return_code')
         self.__history.append(hist_entry)
         if error:
+            error_msg = error_msg or error_msg_stdout
             raise RunError(error_msg)
         return output
 
@@ -248,7 +253,7 @@ class Nodes:
         return self.__process_cache(xml)
 
     def __get_platform_xml(self):
-        result = self.run('lstopo topology.xml && cat topology.xml')
+        result = self.run('lstopo -f topology.xml && cat topology.xml')
         xml = {}
         for node, output in result.items():
             xml[node] = lxml.etree.fromstring(output.stdout.encode('utf8'))
@@ -590,8 +595,8 @@ class Job:
         commands_with_files = {
                     'cpuinfo.txt': 'cp /proc/cpuinfo cpuinfo.txt',
                     'environment.txt': 'env > environment.txt',
-                    'topology.xml': 'lstopo topology.xml',
-                    'topology.pdf': 'lstopo topology.pdf',
+                    'topology.xml': 'lstopo -f topology.xml',
+                    'topology.pdf': 'lstopo -f topology.pdf',
                     'lspci.txt': 'lspci -v > lspci.txt',
                     'dmidecode.txt': 'dmidecode > dmidecode.txt',
                     }
@@ -973,3 +978,6 @@ class ExpFile:
 
     def __iter__(self):
         yield from self.content
+
+    def __len__(self):
+        return len(self.content)
