@@ -171,7 +171,7 @@ class HPL(Job):
     @classmethod
     def gen_large_exp(cls):
         factors = dict(cls.expfile_sets)
-        factors['matrix_size'] = [2**16, 2**17]
+        factors['matrix_size'] = [2**16]
         factors['block_size'] = [2**7]
         factors['proc_p'] = factors['proc_q'] = [4]
         factors['rfact'] = factors['pfact'] = [2]
@@ -180,6 +180,7 @@ class HPL(Job):
         factors['bcast'] = [0, 1, 2, 3]
         factors['depth'] = [1]
         exp = cls.fact_design(factors)
+        exp *= 10
         random.shuffle(exp)
         return exp
 
