@@ -168,6 +168,21 @@ class HPL(Job):
         random.shuffle(exp)
         return exp
 
+    @classmethod
+    def gen_large_exp(cls):
+        factors = dict(cls.expfile_sets)
+        factors['matrix_size'] = [2**16, 2**17]
+        factors['block_size'] = [2**7]
+        factors['proc_p'] = factors['proc_q'] = [4]
+        factors['rfact'] = factors['pfact'] = [2]
+        factors['mem_align'] = [8]
+        factors['swap'] = [1, 2]
+        factors['bcast'] = [0, 1, 2, 3]
+        factors['depth'] = [1]
+        exp = cls.fact_design(factors)
+        random.shuffle(exp)
+        return exp
+
     @property
     def makefile(self):
         return '''
