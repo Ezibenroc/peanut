@@ -16,7 +16,9 @@ class HPL(Job):
                     'bcast': range(0, 6),
                     'depth': range(0, 2),
                     'swap': range(0, 3),
-                    'mem_align': [4, 8]
+                    'mem_align': [4, 8],
+                    'process_per_node': range(1, 129),
+                    'thread_per_process': range(1, 129),
                     }
     expfile_types = {fact: int for fact in expfile_sets}
 
@@ -111,28 +113,38 @@ class HPL(Job):
             if 'FAILED' in line:
                 residual = float(line.split()[-3])
                 logger.warning('HPL test failed with residual %.2e (should be < 16).' % residual)
-            if 'SUCCESS' in line:
+            if 'PASSED' in line:
                 residual = float(line.split()[-3])
         result = *result, residual
         return result
 
     def run_exp(self):
         nb_cores = len(self.nodes.cores)
-        hosts = ','.join(self.hostnames)
         results = []
         start = time.time()
         for i, exp in enumerate(self.expfile):
             proc_p = exp['proc_p']
             proc_q = exp['proc_q']
-            nb_proc = proc_p * proc_q
-            if nb_proc != len(self.hostnames):
-                msg = 'The number of processes for HPL (%d*%d=%d) is different than the number of nodes of the job (%d)'
-                logger.warning(msg % (proc_p, proc_q, nb_proc, len(self.hostnames)))
+            nb_hpl_proc = proc_p * proc_q
+            process_per_node = exp['process_per_node']
+            thread_per_process = exp['thread_per_process']
+            if nb_cores % (process_per_node*thread_per_process) != 0:
+                msg = 'Requested %d process per node and %d thread per process, but %d cores are available'
+                logger.warning(msg % (process_per_node, thread_per_process, nb_cores))
+            nb_proc = len(self.hostnames)*process_per_node
+            if nb_proc != nb_hpl_proc:
+                msg = 'Requested %d*%d=%d processes for HPL, but the total number of processes is %d*%d=%d'
+                logger.warning(msg % (proc_p, proc_q, nb_hpl_proc, len(self.hostnames), process_per_node, nb_proc))
+            exp = dict(exp)
+            del exp['process_per_node']
+            del exp['thread_per_process']
+            hostnames = [host for host in self.hostnames for _ in range(process_per_node)]
+            hosts = ','.join(hostnames)
             hpl_file = self.generate_hpl_file(**exp)
             self.nodes.write_files(hpl_file, os.path.join(self.hpl_dir, 'bin/Debian/HPL.dat'))
             cmd = 'mpirun --allow-run-as-root --bind-to none --timestamp-output -np %d -x OMP_NUM_THREADS=%d -H %s'
             cmd += ' -x LD_LIBRARY_PATH=/tmp/lib ./xhpl'
-            cmd = cmd % (nb_proc, nb_cores, hosts)
+            cmd = cmd % (max(nb_hpl_proc, nb_proc), thread_per_process, hosts)
             output = self.director.run_unique(cmd, directory=self.hpl_dir+'/bin/Debian')
             total_time, gflops, residual = self.parse_hpl(output.stdout)
             new_res = dict(exp)
@@ -166,9 +178,12 @@ class HPL(Job):
         factors = dict(cls.expfile_sets)
         factors['matrix_size'] = [2**15]
         factors['block_size'] = [2**n for n in range(7, 10)]
-        factors['proc_p'] = [4]
-        factors['proc_q'] = [4]
+        factors['proc_p'] = [16, 32]
+        factors['proc_q'] = [16, 32]
+        factors['process_per_node'] = [32]
+        factors['thread_per_process'] = [1]
         exp = cls.fact_design(factors)
+        exp = [e for e in exp if e['proc_p'] * e['proc_q'] == 16*32]
         random.shuffle(exp)
         return exp
 
