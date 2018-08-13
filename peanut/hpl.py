@@ -111,6 +111,9 @@ class HPL(Job):
             if 'FAILED' in line:
                 residual = float(line.split()[-3])
                 logger.warning('HPL test failed with residual %.2e (should be < 16).' % residual)
+            if 'SUCCESS' in line:
+                residual = float(line.split()[-3])
+        result = *result, residual
         return result
 
     def run_exp(self):
@@ -131,10 +134,11 @@ class HPL(Job):
             cmd += ' -x LD_LIBRARY_PATH=/tmp/lib ./xhpl'
             cmd = cmd % (nb_proc, nb_cores, hosts)
             output = self.director.run_unique(cmd, directory=self.hpl_dir+'/bin/Debian')
-            total_time, gflops = self.parse_hpl(output.stdout)
+            total_time, gflops, residual = self.parse_hpl(output.stdout)
             new_res = dict(exp)
             new_res['time'] = total_time
             new_res['gflops'] = gflops
+            new_res['residual'] = residual
             results.append(new_res)
             ellapsed = time.time() - start
             exp_i = i+1
