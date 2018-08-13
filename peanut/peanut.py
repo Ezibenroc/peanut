@@ -440,7 +440,7 @@ class Job:
                 sleep_time = min(sleep_time*2, 60)
             else:
                 break
-        hostnames.sort()
+        hostnames.sort(key=lambda host: self.split_hostname(host).host)
         self.__hostnames = hostnames
         self.cluster = self._check_hostnames(hostnames)
 
