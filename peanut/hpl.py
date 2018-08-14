@@ -209,11 +209,16 @@ class HPL(Job):
         factors['matrix_size'] = [2**i for i in range(14, 19)]
         factors['matrix_size'] += [s + s//2 for s in factors['matrix_size'][:-1]]
         factors['block_size'] = [2**7]
-        factors['proc_p'] = factors['proc_q'] = [4]
-        factors['rfact'] = factors['pfact'] = [2]
+        factors['proc_p'] = [16]
+        factors['proc_q'] = [32]
+        factors['rfact'] = [2]
+        factors['pfact'] = [1]
         factors['mem_align'] = [8]
-        factors['bcast'] = factors['swap'] = [2]
+        factors['bcast'] = [2]
+        factors['swap'] = [0]
         factors['depth'] = [1]
+        factors['process_per_node'] = [32]
+        factors['thread_per_process'] = [1]
         exp = cls.fact_design(factors)
         random.shuffle(exp)
         return exp
