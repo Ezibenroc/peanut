@@ -57,7 +57,7 @@ class HPL(Job):
         self.nodes.set_frequency_performance()
 
     @staticmethod
-    def generate_hpl_file(*, matrix_size, block_size, proc_p, proc_q, pfact, rfact, bcast, depth, swap, mem_align):
+    def generate_hpl_file(*, matrix_size, block_size, proc_p, proc_q, pfact, rfact, bcast, depth, swap, mem_align, **a):
         content = '\n'.join([
             'HPLinpack benchmark input file',
             'Innovative Computing Laboratory, University of Tennessee',
@@ -135,9 +135,6 @@ class HPL(Job):
             if nb_proc != nb_hpl_proc:
                 msg = 'Requested %d*%d=%d processes for HPL, but the total number of processes is %d*%d=%d'
                 logger.warning(msg % (proc_p, proc_q, nb_hpl_proc, len(self.hostnames), process_per_node, nb_proc))
-            exp = dict(exp)
-            del exp['process_per_node']
-            del exp['thread_per_process']
             hostnames = [host for host in self.hostnames for _ in range(process_per_node)]
             hosts = ','.join(hostnames)
             hpl_file = self.generate_hpl_file(**exp)
