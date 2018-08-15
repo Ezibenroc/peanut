@@ -2,7 +2,7 @@ import itertools
 import os
 import random
 import time
-from .peanut import Job, logger, ExpFile, Time
+from .peanut import Job, logger, ExpFile, Time, RunError
 
 
 class HPL(Job):
@@ -52,7 +52,14 @@ class HPL(Job):
         self.nodes.run('tar -xvf hpl-2.2.tar.gz')
         self.nodes.write_files(self.makefile, os.path.join(self.hpl_dir, 'Make.Debian'))
         self.nodes.run('make startup arch=Debian', directory=self.hpl_dir)
-        self.nodes.run('LD_LIBRARY_PATH=/tmp/lib make -j 64 arch=Debian', directory=self.hpl_dir)
+        while True:
+            try:
+                self.nodes.run('LD_LIBRARY_PATH=/tmp/lib make -j 64 arch=Debian', directory=self.hpl_dir)
+            except RunError as e:  # for some reason, this command fails sometime...
+                msg = str(e).split('\n')[0]
+                logger.error('Previous command failed with message %s' % msg)
+            else:
+                break
         self.nodes.enable_hyperthreading()
         self.nodes.set_frequency_performance()
 
