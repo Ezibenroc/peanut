@@ -46,7 +46,7 @@ class MPICalibration(Job):
         self.nodes.run('mkdir -p %s' % (path + '/exp'))
         host = self.hostnames
         if len(host) == 1:  # testing on localhost
-            host *= 2
+            host = ['localhost']*2
         elif len(host) > 2:
             host = host[:2]
             logger.warning('Too much nodes for the MPI calibration, will only use %s and %s' % tuple(host))
