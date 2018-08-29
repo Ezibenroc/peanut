@@ -1,6 +1,6 @@
 import itertools
 import random
-from .peanut import Job
+from .peanut import Job, logger
 
 
 class MPICalibration(Job):
@@ -44,7 +44,13 @@ class MPICalibration(Job):
         path = '/tmp/platform-calibration/src/calibration'
         self.nodes.write_files(self.expfile.raw_content, path + '/zoo_sizes')
         self.nodes.run('mkdir -p %s' % (path + '/exp'))
-        host = ','.join([node.host for node in self.nodes])
+        host = self.hostnames
+        if len(host) == 1:  # testing on localhost
+            host *= 2
+        elif len(host) > 2:
+            host = host[:2]
+            logger.warning('Too much nodes for the MPI calibration, will only use %s and %s' % tuple(host))
+        host = ','.join(host)
         args = '-d exp -m %d -M %d -p exp -s zoo_sizes' % (min_s, max_s)
         self.director.run('mpirun --allow-run-as-root -np 2 -host %s ./calibrate %s' % (host, args),
                           directory=path)
