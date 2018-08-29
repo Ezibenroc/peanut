@@ -51,6 +51,9 @@ class MPICalibration(Job):
             host = host[:2]
             logger.warning('Too much nodes for the MPI calibration, will only use %s and %s' % tuple(host))
         host = ','.join(host)
+        output = self.director.run_unique('python3 find_breakpoints.py --allow-run-as-root -np 2 -host %s' % host,
+                                          directory=path)
+        self.add_content_to_archive(output.stdout, 'breakpoints')
         args = '-d exp -m %d -M %d -p exp -s zoo_sizes' % (min_s, max_s)
         self.director.run('mpirun --allow-run-as-root -np 2 -host %s ./calibrate %s' % (host, args),
                           directory=path)
