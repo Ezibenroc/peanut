@@ -4,10 +4,12 @@ import yaml
 import os
 from .mpi_calibration import MPICalibration
 from .hpl import HPL
+from .blas_calibration import BLASCalibration
 from .version import __version__, __git_version__
 
 classes = [
     MPICalibration,
+    BLASCalibration,
     HPL
 ]
 
