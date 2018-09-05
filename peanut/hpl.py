@@ -60,7 +60,7 @@ class HPL(Job):
                 logger.error('Previous command failed with message %s' % msg)
             else:
                 break
-        self.nodes.enable_hyperthreading()
+        self.nodes.disable_hyperthreading()
         self.nodes.set_frequency_performance()
 
     @staticmethod

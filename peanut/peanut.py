@@ -840,7 +840,7 @@ class Job:
     def setup(self):
         if self.deploy:
             self.kadeploy()
-        self.nodes  # triggering nodes instanciation, a bit dirty FIXME
+        self.nodes.run('rm -rf /tmp/*')
         # Creating an empty zip archive on the director node
         # See https://stackoverflow.com/a/50091682/4110059
         self.director.run('echo UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA== | base64 -d > %s' % self.archive_name)

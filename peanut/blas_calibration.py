@@ -27,29 +27,34 @@ class BLASCalibration(Job):
             'hwloc',
             'pciutils',
             'net-tools',
+            'cpufrequtils',
+            'linux-cpupower',
+            'tmux',
         )
         self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout='v0.3.1')
         self.nodes.run('make -j 64', directory='openblas')
         self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
+        self.nodes.run('ln -s libopenblas.so libblas.so', directory='lib')
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration')
         self.nodes.run('BLAS_INSTALLATION=%s make calibrate_blas' % self.nodes.working_dir,
                        directory='platform-calibration/src/calibration')
-        self.nodes.enable_hyperthreading()
+        self.nodes.disable_hyperthreading()
         self.nodes.set_frequency_performance()
         return self
 
     def run_exp(self):
+        cmd = 'LD_LIBRARY_PATH=/%s/lib ./calibrate_blas -s ./zoo_sizes' % self.nodes.working_dir
         nb_cores = len(self.nodes.cores)
         path = '/tmp/platform-calibration/src/calibration'
         self.nodes.write_files(self.expfile.raw_content, path + '/zoo_sizes')
-        self.nodes.run('OMP_NUM_THREADS=%d ./calibrate_blas -s ./zoo_sizes -o ./result_multicore.csv' % nb_cores,
+        self.nodes.run('OMP_NUM_THREADS=%d %s -o ./result_multicore.csv' % (nb_cores, cmd),
                        directory=path)
-        self.nodes.run('OMP_NUM_THREADS=1 ./calibrate_blas -s ./zoo_sizes -o ./result_monocore.csv',
+        self.nodes.run('OMP_NUM_THREADS=1 %s -o ./result_monocore.csv' % cmd,
                        directory=path)
         for i in range(nb_cores-1):
-            self.nodes.run('tmux new-session -d -s tmux_%d "OMP_NUM_THREADS=1 ./calibrate_blas -s ./zoo_sizes -l"' % i,
+            self.nodes.run('tmux new-session -d -s tmux_%d "OMP_NUM_THREADS=1 %s -l"' % (i, cmd),
                            directory=path)
-        self.nodes.run('OMP_NUM_THREADS=1 ./calibrate_blas -s ./zoo_sizes -o ./result_monocore_contention.csv',
+        self.nodes.run('OMP_NUM_THREADS=1 %s -o ./result_monocore_contention.csv' % cmd,
                        directory=path)
         self.add_local_to_archive(path + '/result_multicore.csv')
         self.add_local_to_archive(path + '/result_monocore.csv')
