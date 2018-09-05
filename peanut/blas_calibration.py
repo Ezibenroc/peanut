@@ -29,6 +29,7 @@ class BLASCalibration(Job):
             'net-tools',
             'cpufrequtils',
             'linux-cpupower',
+            'numactl',
             'tmux',
         )
         self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout='v0.3.1')
@@ -43,18 +44,23 @@ class BLASCalibration(Job):
         return self
 
     def run_exp(self):
-        cmd = 'LD_LIBRARY_PATH=/%s/lib ./calibrate_blas -s ./zoo_sizes' % self.nodes.working_dir
+        ldlib = 'LD_LIBRARY_PATH=%s/lib' % self.nodes.working_dir
+        cmd = './calibrate_blas -s ./zoo_sizes'
         nb_cores = len(self.nodes.cores)
         path = '/tmp/platform-calibration/src/calibration'
         self.nodes.write_files(self.expfile.raw_content, path + '/zoo_sizes')
-        self.nodes.run('OMP_NUM_THREADS=%d %s -o ./result_multicore.csv' % (nb_cores, cmd),
+        self.nodes.run('OMP_NUM_THREADS=%d %s %s -o ./result_multicore.csv' % (nb_cores, ldlib, cmd),
                        directory=path)
-        self.nodes.run('OMP_NUM_THREADS=1 %s -o ./result_monocore.csv' % cmd,
+        numactl_str = 'numactl --physcpubind=%d --localalloc'
+        numactl = numactl_str % (nb_cores-1)
+        self.nodes.run('OMP_NUM_THREADS=1 %s %s %s -o ./result_monocore.csv' % (ldlib, numactl, cmd),
                        directory=path)
         for i in range(nb_cores-1):
-            self.nodes.run('tmux new-session -d -s tmux_%d "OMP_NUM_THREADS=1 %s -l"' % (i, cmd),
+            numactl = numactl_str % i
+            self.nodes.run('tmux new-session -d -s tmux_%d "OMP_NUM_THREADS=1 %s %s %s -l"' % (i, ldlib, numactl, cmd),
                            directory=path)
-        self.nodes.run('OMP_NUM_THREADS=1 %s -o ./result_monocore_contention.csv' % cmd,
+        numactl = numactl_str % (nb_cores-1)
+        self.nodes.run('OMP_NUM_THREADS=1 %s %s %s -o ./result_monocore_contention.csv' % (ldlib, numactl, cmd),
                        directory=path)
         self.add_local_to_archive(path + '/result_multicore.csv')
         self.add_local_to_archive(path + '/result_monocore.csv')
