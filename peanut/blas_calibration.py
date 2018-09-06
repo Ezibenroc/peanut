@@ -69,7 +69,8 @@ class BLASCalibration(Job):
 
     @classmethod
     def gen_exp(cls):
-        sizes = {int(10**random.uniform(0, 3.6)) for _ in range(100)}
+        max_size = 4000
+        sizes = {int(x**(1/3)) for x in random.sample(range(1, max_size**3), 100)}
         exp = list(itertools.product(cls.all_op, sizes))
         exp *= 5
         random.shuffle(exp)
