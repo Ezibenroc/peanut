@@ -69,8 +69,8 @@ class BLASCalibration(Job):
 
     @classmethod
     def gen_exp(cls):
-        sizes = {int(10**random.uniform(0, 3.6)) for _ in range(1000)}
+        sizes = {int(10**random.uniform(0, 3.6)) for _ in range(100)}
         exp = list(itertools.product(cls.all_op, sizes))
-        exp *= 50
+        exp *= 5
         random.shuffle(exp)
         return [{'operation': op, 'size': size} for op, size in exp]
