@@ -939,7 +939,7 @@ class ExpFile:
     def write_content(self):
         self.check_types()
         raw = io.StringIO()
-        writer = csv.writer(raw)
+        writer = csv.writer(raw, lineterminator='\n')  # default seems to be '\r\n'
         header = set(self.content[0].keys())
         writer.writerow(header)
         for row in self.content:
