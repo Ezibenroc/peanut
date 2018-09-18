@@ -148,14 +148,15 @@ class SMPIHPL(AbstractHPL):
     @classmethod
     def gen_exp(cls):
         factors = dict(cls.expfile_sets)
-        factors['matrix_size'] = [2**14]
+        factors['matrix_size'] = [2**i for i in range(12, 18)]
+        factors['matrix_size'] += [s + s//2 for s in factors['matrix_size'][:-1]]
         factors['block_size'] = [2**7]
         factors['dgemm_coefficient'] = [6.576114746760746e-11]
         factors['dgemm_intercept'] = [1e-7]
         factors['dtrsm_coefficient'] = [3.4419129894561347e-11]
         factors['dtrsm_intercept'] = [1e-7]
-        factors['proc_p'] = [4]
-        factors['proc_q'] = [8]
+        factors['proc_p'] = [16]
+        factors['proc_q'] = [32]
         factors['rfact'] = [2]
         factors['pfact'] = [1]
         factors['mem_align'] = [8]
