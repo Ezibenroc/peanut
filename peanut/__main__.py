@@ -6,11 +6,13 @@ from .mpi_calibration import MPICalibration
 from .hpl import HPL
 from .blas_calibration import BLASCalibration
 from .version import __version__, __git_version__
+from .smpi_hpl import SMPIHPL
 
 classes = [
     MPICalibration,
     BLASCalibration,
-    HPL
+    HPL,
+    SMPIHPL
 ]
 
 entry_points = {cls.__name__: cls.main for cls in classes}

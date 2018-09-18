@@ -44,11 +44,13 @@ class BLASCalibration(Job):
         return self
 
     def run_exp(self):
+        assert len(self.expfile) == 1
+        expfile = self.expfile[0]
         ldlib = 'LD_LIBRARY_PATH=%s/lib' % self.nodes.working_dir
         cmd = './calibrate_blas -s ./zoo_sizes'
         nb_cores = len(self.nodes.cores)
         path = '/tmp/platform-calibration/src/calibration'
-        self.nodes.write_files(self.expfile.raw_content, path + '/zoo_sizes')
+        self.nodes.write_files(expfile.raw_content, path + '/zoo_sizes')
         self.nodes.run('OMP_NUM_THREADS=%d %s %s -o ./result_multicore.csv' % (nb_cores, ldlib, cmd),
                        directory=path)
         numactl_str = 'numactl --physcpubind=%d --localalloc'

@@ -34,7 +34,9 @@ class HPL(AbstractHPL):
         nb_cores = len(self.nodes.cores)
         results = []
         start = time.time()
-        for i, exp in enumerate(self.expfile):
+        assert len(self.expfile) == 1
+        expfile = self.expfile[0]
+        for i, exp in enumerate(expfile):
             proc_p = exp['proc_p']
             proc_q = exp['proc_q']
             nb_hpl_proc = proc_p * proc_q
@@ -64,12 +66,12 @@ class HPL(AbstractHPL):
             ellapsed = time.time() - start
             exp_i = i+1
             speed = exp_i/ellapsed
-            rest = (len(self.expfile)-exp_i)/speed
+            rest = (len(expfile)-exp_i)/speed
             if rest > 0:
                 rest = Time.from_seconds(rest)
                 time_info = ' | estimated remaining time: %s' % rest
             else:
                 time_info = ''
-            logger.debug('Done experiment %d / %d%s' % (i+1, len(self.expfile), time_info))
+            logger.debug('Done experiment %d / %d%s' % (i+1, len(expfile), time_info))
         results = ExpFile(content=results, filename='results.csv')
         self.add_content_to_archive(results.raw_content, 'results.csv')

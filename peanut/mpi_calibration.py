@@ -39,10 +39,12 @@ class MPICalibration(Job):
         return self
 
     def run_exp(self):
-        min_s = min(exp['size'] for exp in self.expfile)
-        max_s = max(exp['size'] for exp in self.expfile)
+        assert len(self.expfile) == 1
+        expfile = self.expfile[0]
+        min_s = min(exp['size'] for exp in expfile)
+        max_s = max(exp['size'] for exp in expfile)
         path = '/tmp/platform-calibration/src/calibration'
-        self.nodes.write_files(self.expfile.raw_content, path + '/zoo_sizes')
+        self.nodes.write_files(expfile.raw_content, path + '/zoo_sizes')
         self.nodes.run('mkdir -p %s' % (path + '/exp'))
         host = self.hostnames
         if len(host) == 1:  # testing on localhost

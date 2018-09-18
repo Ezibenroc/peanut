@@ -661,7 +661,7 @@ class Job:
         result['deployment'] = self.deploy
         result['command'] = ' '.join(sys.argv)
         result['replay_command'] = self.replay_command
-        result['expfile'] = self.expfile.basename
+        result['expfile'] = [f.basename for f in self.expfile]
         result.update(self.information)
         return result
 
@@ -689,7 +689,8 @@ class Job:
         except AttributeError:  # no expfile
             pass
         else:
-            self.add_content_to_archive(expfile.raw_content, expfile.basename)
+            for f in expfile:
+                self.add_content_to_archive(f.raw_content, f.basename)
         log = log_stream.getvalue()
         log = log.encode('ascii', 'ignore').decode()  # removing any non-ascii character
         self.add_content_to_archive(log, 'commands.log')
@@ -759,7 +760,7 @@ class Job:
         sp_run.add_argument('--walltime', help='Duration of the experiment.', type=Time.parse, default=Time(hours=1))
         sp_run.add_argument('--nbnodes', help='Number of nodes for the experiment.', type=positive_int, default=1)
         sp_run.add_argument('--expfile', help='File which describes the experiment.', required=True,
-                            type=lambda f: ExpFile(filename=f, types=cls.expfile_types))
+                            nargs='+', type=lambda f: ExpFile(filename=f, types=cls.expfile_types))
         sp_run.add_argument('--batch', help='Whether to run this as a batch job or not.',
                             action='store_true', default=False)
         sp_gen = sp.add_parser('generate', help='Generate an experiment file.')
@@ -806,6 +807,7 @@ class Job:
         user = args['username']
         deploy = args['deploy']
         expfile = args['expfile']
+        print(expfile)
         try:
             cls.check_expfile(expfile)
         except ValueError as e:
@@ -823,7 +825,8 @@ class Job:
         if args['batch']:
             script = cls.generate_batch_command(args, site)
             cls._check_install(frontend)
-            frontend.write_files(expfile.raw_content, expfile.basename)
+            for f in expfile:
+                frontend.write_files(f.raw_content, f.basename)
         else:
             script = None
         if 'cluster' in args:
@@ -900,7 +903,7 @@ class Job:
         cmd += '--jobid %s:$OAR_JOB_ID ' % site
         if args['deploy']:
             cmd += '--deploy %s ' % args['deploy']
-        cmd += '--expfile %s' % args['expfile'].basename
+        cmd += '--expfile %s' % ' '.join([f.basename for f in args['expfile']])
         return cmd
 
     @classmethod
@@ -909,13 +912,20 @@ class Job:
 
     @classmethod
     def check_expfile(cls, expfile):
-        for exp in expfile:
-            cls.check_exp(exp)
+        for f in expfile:
+            if not f.content:
+                continue
+            for exp in f:
+                cls.check_exp(exp)
 
 
 class ExpFile:
     def __init__(self, *, filename, content=None, types=None):
         self.filename = filename
+        self.extension = os.path.splitext(filename)[1]
+        if not self.extension:
+            raise ValueError('File %s has no extension' % filename)
+        self.extension = self.extension[1:]
         self.types = types
         self.content = content
         self.raw_content = None
@@ -949,6 +959,8 @@ class ExpFile:
             f.write(self.raw_content)
 
     def parse_content(self):
+        if self.extension != 'csv':
+            return
         reader = csv.reader(io.StringIO(self.raw_content))
         header = [h.strip() for h in next(reader)]
         if self.types:
