@@ -127,11 +127,11 @@ class SMPIHPL(AbstractHPL):
             dtrsm_coeff = exp['dtrsm_coefficient']
             dtrsm_inter = exp['dtrsm_intercept']
 
-            cmd = f'SMPI_DGEMM_COEFFICIENT={dgemm_coeff} SMPI_DGEMM_INTERCEPT={dgemm_inter} '
-            cmd += f'SMPI_DTRSM_COEFFICIENT={dtrsm_coeff} SMPI_DTRSM_INTERCEPT={dtrsm_inter} '
+            cmd = 'SMPI_DGEMM_COEFFICIENT=%e SMPI_DGEMM_INTERCEPT=%e ' % (dgemm_coeff, dgemm_inter)
+            cmd += 'SMPI_DTRSM_COEFFICIENT=%e SMPI_DTRSM_INTERCEPT=%e ' % (dtrsm_coeff, dtrsm_inter)
             cmd += 'TIME="/usr/bin/time:output %U %S %F %R %P" '
-            cmd += 'smpirun -wrapper /usr/bin/time --cfg=smpi/privatize-global-variables:dlopen '
-            cmd += f'--cfg=smpi/display-timing:yes -platform platform.xml -hostfile hosts.txt -np {nb_hpl_proc} ./xhpl'
+            cmd += 'smpirun -wrapper /usr/bin/time --cfg=smpi/privatize-global-variables:dlopen -np %d ' % nb_hpl_proc
+            cmd += '--cfg=smpi/display-timing:yes -platform platform.xml -hostfile hosts.txt ./xhpl'
 
             output = self.director.run_unique(cmd, directory=self.hpl_dir+'/bin/SMPI')
             total_time, gflops, residual = self.parse_hpl(output.stdout)
