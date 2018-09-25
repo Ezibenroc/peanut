@@ -76,8 +76,6 @@ class SMPIHPL(AbstractHPL):
     def setup(self):
         super().setup()
         self.apt_install('python3', 'libboost-dev', 'libatlas-base-dev')  # we don't care about which BLAS is installed
-        if self.trace_execution:
-            self.install_akypuera(smpi=True)
         self.git_clone('https://github.com/simgrid/simgrid.git', 'simgrid', checkout='v3.20')
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
@@ -133,9 +131,14 @@ class SMPIHPL(AbstractHPL):
             cmd += 'SMPI_DTRSM_COEFFICIENT=%e SMPI_DTRSM_INTERCEPT=%e ' % (dtrsm_coeff, dtrsm_inter)
             cmd += 'TIME="/usr/bin/time:output %U %S %F %R %P" '
             cmd += 'smpirun -wrapper /usr/bin/time --cfg=smpi/privatize-global-variables:dlopen -np %d ' % nb_hpl_proc
+            if self.trace_execution:
+                paje_file = os.path.join(self.director.working_dir, 'trace_%d.paje' % i)
+                cmd += '--cfg=tracing:yes --cfg=tracing/filename:%s --cfg=tracing/smpi:1 ' % paje_file
+                cmd += '--cfg=tracing/smpi/computing:yes '
             cmd += '--cfg=smpi/display-timing:yes -platform platform.xml -hostfile hosts.txt ./xhpl'
-
             output = self.director.run_unique(cmd, directory=self.hpl_dir+'/bin/SMPI')
+            if self.trace_execution:
+                self.add_local_to_archive(paje_file)
             total_time, gflops, residual = self.parse_hpl(output.stdout)
             new_res = dict(exp)
             new_res['time'] = total_time
