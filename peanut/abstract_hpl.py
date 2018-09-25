@@ -20,6 +20,17 @@ class AbstractHPL(Job):
                     'thread_per_process': range(1, 129),
                     }
     expfile_types = {fact: int for fact in expfile_sets}
+    trace_execution = True
+
+    def install_akypuera(self, smpi):
+        self.git_clone('https://github.com/schnorr/akypuera.git', 'akypuera', recursive=True)
+        mode = 'ON' if smpi else 'FALSE'
+        self.nodes.run('mkdir build && cd build && cmake -DSMPI=%s ..' % mode, directory='akypuera')
+        self.nodes.run('make -j 32', directory='akypuera/build')
+
+    @property
+    def akypuera_dir(self):
+        return os.path.join(self.nodes.working_dir, 'akypuera/build')
 
     @classmethod
     def check_exp(cls, exp):

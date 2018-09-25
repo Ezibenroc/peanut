@@ -12,6 +12,8 @@ class HPL(AbstractHPL):
             'libopenmpi-dev',
             'net-tools',
         )
+        if self.trace_execution:
+            self.install_akypuera(smpi=False)
         self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout='v0.3.1')
         self.nodes.run('make -j 64', directory='openblas')
         self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
@@ -54,9 +56,23 @@ class HPL(AbstractHPL):
             hpl_file = self.generate_hpl_file(**exp)
             self.nodes.write_files(hpl_file, os.path.join(self.hpl_dir, 'bin/Debian/HPL.dat'))
             cmd = 'mpirun --allow-run-as-root --bind-to none --timestamp-output -np %d -x OMP_NUM_THREADS=%d -H %s'
-            cmd += ' -x LD_LIBRARY_PATH=/tmp/lib ./xhpl'
+            cmd += ' -x LD_LIBRARY_PATH=/tmp/lib'
+            if self.trace_execution:
+                lib = os.path.join(self.akypuera_dir, 'libaky.so')
+                cmd += ' -x LD_PRELOAD=%s' % lib
+            cmd += ' ./xhpl'
             cmd = cmd % (max(nb_hpl_proc, nb_proc), thread_per_process, hosts)
             output = self.director.run_unique(cmd, directory=self.hpl_dir+'/bin/Debian')
+            if self.trace_execution:
+                rstdir = os.path.join(self.orchestra.working_dir, self.hpl_dir, 'bin/Debian/rastro-*.rst')
+                for node in self.orchestra.hostnames:
+                    self.director.run("rsync -a '%s:%s' ." % (node, rstdir), directory=self.hpl_dir+'/bin/Debian')
+                converter = os.path.join(self.akypuera_dir, 'aky_converter')
+                paje_file = os.path.join(self.director.working_dir, 'trace_%d.paje' % i)
+                self.director.run('ls -l rastro-*rst', directory=self.hpl_dir+'/bin/Debian')
+                self.director.run('%s rastro-*rst > %s' % (converter, paje_file), directory=self.hpl_dir+'/bin/Debian')
+                self.nodes.run('rm -f rastro-*rst', directory=self.hpl_dir+'/bin/Debian')
+                self.add_local_to_archive(paje_file)
             total_time, gflops, residual = self.parse_hpl(output.stdout)
             new_res = dict(exp)
             new_res['time'] = total_time

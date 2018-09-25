@@ -76,6 +76,8 @@ class SMPIHPL(AbstractHPL):
     def setup(self):
         super().setup()
         self.apt_install('python3', 'libboost-dev', 'libatlas-base-dev')  # we don't care about which BLAS is installed
+        if self.trace_execution:
+            self.install_akypuera(smpi=True)
         self.git_clone('https://github.com/simgrid/simgrid.git', 'simgrid', checkout='v3.20')
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')

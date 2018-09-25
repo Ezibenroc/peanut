@@ -666,8 +666,10 @@ class Job:
         return result
 
     def add_local_to_archive(self, target):
-        target_name = os.path.basename(os.path.normpath(target))
-        if target_name != target:
+        target = os.path.normpath(target)
+        target_name = os.path.basename(target)
+        target_dir = os.path.dirname(target)
+        if target_dir and target_dir != self.director.working_dir:
             self.director.run('cp -r %s %s' % (target, target_name))
         self.director.run('zip -ru %s %s' % (self.archive_name, target_name))
 
@@ -714,8 +716,11 @@ class Job:
             short_target = host[:host.find('.')]
             self.director.run('ssh -o "StrictHostKeyChecking no" %s hostname' % short_target, directory='/root')
 
-    def git_clone(self, url, repository_path, checkout=None):
-        self.nodes.run('git clone %s %s' % (url, repository_path))
+    def git_clone(self, url, repository_path, checkout=None, recursive=False):
+        cmd = 'git clone'
+        if recursive:
+            cmd += ' --recursive'
+        self.nodes.run('%s %s %s' % (cmd, url, repository_path))
         if checkout:
             self.nodes.run('git checkout %s' % checkout, directory=repository_path)
         git_hash = self.nodes.run_unique('git rev-parse HEAD', directory=repository_path)
