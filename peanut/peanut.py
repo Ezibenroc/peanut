@@ -334,6 +334,7 @@ class Nodes:
 class Job:
     install_path = '~/.local/bin/peanut'
     expfile_types = {}
+    expfile_header = True
     auto_oardel = False
     deployment_images = ['debian9-x64-%s' % mode for mode in ['min', 'base', 'nfs', 'big']]
     clusters = {
@@ -765,7 +766,8 @@ class Job:
         sp_run.add_argument('--walltime', help='Duration of the experiment.', type=Time.parse, default=Time(hours=1))
         sp_run.add_argument('--nbnodes', help='Number of nodes for the experiment.', type=positive_int, default=1)
         sp_run.add_argument('--expfile', help='File which describes the experiment.', required=True,
-                            nargs='+', type=lambda f: ExpFile(filename=f, types=cls.expfile_types))
+                            nargs='+', type=lambda f: ExpFile(filename=f, types=cls.expfile_types,
+                                                              header=cls.expfile_header))
         sp_run.add_argument('--batch', help='Whether to run this as a batch job or not.',
                             action='store_true', default=False)
         sp_gen = sp.add_parser('generate', help='Generate an experiment file.')
@@ -883,7 +885,7 @@ class Job:
     @classmethod
     def _main_generate(cls, args):
         exp = cls.gen_exp()
-        ExpFile(filename=args['filename'], content=exp)
+        ExpFile(filename=args['filename'], content=exp, types=cls.expfile_types, header=cls.expfile_header)
 
     @classmethod
     def _main_run(cls, args):
@@ -925,8 +927,9 @@ class Job:
 
 
 class ExpFile:
-    def __init__(self, *, filename, content=None, types=None):
+    def __init__(self, *, filename, content=None, types=None, header=True):
         self.filename = filename
+        self.header = header
         self.extension = os.path.splitext(filename)[1]
         if not self.extension:
             raise ValueError('File %s has no extension' % filename)
@@ -955,8 +958,9 @@ class ExpFile:
         self.check_types()
         raw = io.StringIO()
         writer = csv.writer(raw, lineterminator='\n')  # default seems to be '\r\n'
-        header = set(self.content[0].keys())
-        writer.writerow(header)
+        header = list(self.content[0].keys())
+        if self.header:
+            writer.writerow(header)
         for row in self.content:
             writer.writerow([row[key] for key in header])
         self.raw_content = raw.getvalue()
@@ -966,8 +970,12 @@ class ExpFile:
     def parse_content(self):
         if self.extension != 'csv':
             return
+        assert self.types or self.header
         reader = csv.reader(io.StringIO(self.raw_content))
-        header = [h.strip() for h in next(reader)]
+        if self.header:
+            header = [h.strip() for h in next(reader)]
+        else:
+            header = list(self.types)
         if self.types:
             expected_header = set(self.types)
             real_header = set(header)

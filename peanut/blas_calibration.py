@@ -4,12 +4,13 @@ from .peanut import Job, logger
 
 
 class BLASCalibration(Job):
-    expfile_types = {'size': int, 'operation': str}
+    expfile_types = {'operation': str, 'm': int, 'n': int, 'k': int}
     all_op = ['dgemm', 'dtrsm']
+    expfile_header = False
 
     @classmethod
     def check_exp(cls, exp):
-        if exp['size'] < 0:
+        if exp['m'] < 0 or exp['n'] < 0 or (exp['operation'] != 'dtrsm' and exp['k'] < 0):
             raise ValueError('Error with experiment %s, negative size.' % exp)
         if exp['operation'] not in cls.all_op:
             raise ValueError('Error with experiment %s, unknown operation.' % exp)
@@ -72,8 +73,16 @@ class BLASCalibration(Job):
     @classmethod
     def gen_exp(cls):
         max_size = 4000
-        sizes = {int(x**(1/3)) for x in random.sample(range(1, max_size**3), 100)}
-        exp = list(itertools.product(cls.all_op, sizes))
+        exp = []
+        for _ in range(100):
+            m = random.randint(1, max_size)
+            n = random.randint(1, max_size)
+            k = random.randint(1, max_size)
+            for op in cls.all_op:
+                if op == 'dtrsm':
+                    exp.append({'operation': op, 'm': m, 'n': n, 'k': -1})
+                else:
+                    exp.append({'operation': op, 'm': m, 'n': n, 'k': k})
         exp *= 5
         random.shuffle(exp)
-        return [{'operation': op, 'size': size} for op, size in exp]
+        return exp

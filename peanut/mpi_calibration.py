@@ -4,10 +4,11 @@ from .peanut import Job, logger
 
 
 class MPICalibration(Job):
-    expfile_types = {'size': int, 'operation': str}
+    expfile_types = {'operation': str, 'size': int}
     op_com = ['Recv', 'Isend', 'PingPong']
     op_test = ['Wtime', 'Iprobe', 'Test']
     all_op = op_com + op_test
+    expfile_header = False
 
     @classmethod
     def check_exp(cls, exp):
