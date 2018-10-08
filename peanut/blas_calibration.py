@@ -6,7 +6,8 @@ from .peanut import Job, logger
 class BLASCalibration(Job):
     expfile_types = {'operation': str, 'm': int, 'n': int, 'k': int}
     all_op = ['dgemm', 'dtrsm']
-    expfile_header = False
+    expfile_header_in_file = False
+    expfile_header = ['operation', 'm', 'n', 'k']
 
     @classmethod
     def check_exp(cls, exp):

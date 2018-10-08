@@ -8,7 +8,8 @@ class MPICalibration(Job):
     op_com = ['Recv', 'Isend', 'PingPong']
     op_test = ['Wtime', 'Iprobe', 'Test']
     all_op = op_com + op_test
-    expfile_header = False
+    expfile_header_in_file = False
+    expfile_header = ['operation', 'size']
 
     @classmethod
     def check_exp(cls, exp):
