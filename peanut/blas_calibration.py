@@ -75,15 +75,15 @@ class BLASCalibration(Job):
     def gen_exp(cls):
         max_size = 4000
         exp = []
-        for _ in range(100):
+        for _ in range(60):
             m = random.randint(1, max_size)
             n = random.randint(1, max_size)
             k = random.randint(1, max_size)
             for op in cls.all_op:
                 exp.append({'operation': op, 'm': m, 'n': n, 'k': k})
-        for _ in range(50):
+        for _ in range(30):
             big_sizes = [random.randint(1, max_size*4) for _ in range(2)]
-            small_size = random.randint(1, max_size/16)
+            small_size = random.randint(1, max_size//16)
             exp.append({'operation': 'dgemm', 'm': big_sizes[0], 'n': big_sizes[1], 'k': small_size})
             exp.append({'operation': 'dgemm', 'm': big_sizes[0], 'n': small_size, 'k': big_sizes[1]})
             exp.append({'operation': 'dgemm', 'm': small_size, 'n': big_sizes[0], 'k': big_sizes[1]})
@@ -92,6 +92,6 @@ class BLASCalibration(Job):
         for e in exp:
             if e['operation'] == 'dtrsm':
                 e['k'] = -1
-        exp *= 5
+        exp *= 3
         random.shuffle(exp)
         return exp
