@@ -125,7 +125,7 @@ class AbstractHPL(Job):
         return designs
 
     @classmethod
-    def gen_exp(cls):
+    def gen__exp(cls):
         factors = dict(cls.expfile_sets)
         factors['matrix_size'] = [2**15]
         factors['block_size'] = [2**n for n in range(7, 10)]
@@ -155,12 +155,13 @@ class AbstractHPL(Job):
         return exp
 
     @classmethod
-    def gen_large_exp(cls):
+    def gen_exp(cls):
         factors = dict(cls.expfile_sets)
-        factors['matrix_size'] = [2**i for i in range(14, 19)]
-        factors['matrix_size'] += [s + s//2 for s in factors['matrix_size'][:-1]]
+#        factors['matrix_size'] = [2**i for i in range(14, 19)]
+#        factors['matrix_size'] += [s + s//2 for s in factors['matrix_size'][:-1]]
+        factors['matrix_size'] = list(range(300000, 500001, 50000)) # list(range(50000, 250001, 25000))
         factors['block_size'] = [2**7]
-        factors['proc_p'] = [16]
+        factors['proc_p'] = [32]
         factors['proc_q'] = [32]
         factors['rfact'] = [2]
         factors['pfact'] = [1]
