@@ -135,6 +135,7 @@ class SMPIHPL(AbstractHPL):
                 paje_file = os.path.join(self.director.working_dir, 'trace_%d.paje' % i)
                 cmd += '--cfg=tracing:yes --cfg=tracing/filename:%s --cfg=tracing/smpi:1 ' % paje_file
                 cmd += '--cfg=tracing/smpi/computing:yes '
+            cmd += '--cfg=smpi/shared-malloc-hugepage:/root/huge '
             cmd += '--cfg=smpi/display-timing:yes -platform platform.xml -hostfile hosts.txt ./xhpl'
             output = self.director.run_unique(cmd, directory=self.hpl_dir+'/bin/SMPI')
             if self.trace_execution:
