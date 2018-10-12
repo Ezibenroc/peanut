@@ -766,7 +766,7 @@ class Job:
         group.add_argument('--jobid', help='Job ID for the experiment, of the form site:ID.', type=cls.parse_jobid)
         sp_run.add_argument('--walltime', help='Duration of the experiment.', type=Time.parse, default=Time(hours=1))
         sp_run.add_argument('--nbnodes', help='Number of nodes for the experiment.', type=positive_int, default=1)
-        sp_run.add_argument('--expfile', help='File which describes the experiment.', required=True,
+        sp_run.add_argument('--expfile', help='File which describes the experiment.',
                             nargs='+', type=lambda f: ExpFile(filename=f, types=cls.expfile_types,
                                                               header=cls.expfile_header,
                                                               header_in_file=cls.expfile_header_in_file))
@@ -806,7 +806,7 @@ class Job:
         cmd += '--nbnodes %d ' % len(self.hostnames)
         cmd += '--walltime %s ' % walltime
         try:
-            cmd += '--expfile %s' % self.expfile.basename
+            cmd += '--expfile %s' % ' '.join([f.basename for f in self.expfile])
         except AttributeError:
             pass
         return cmd.strip()
@@ -815,8 +815,10 @@ class Job:
     def job_from_args(cls, args):
         user = args['username']
         deploy = args['deploy']
-        expfile = args['expfile']
-        print(expfile)
+        try:
+            expfile = args['expfile']
+        except KeyError:
+            expfile = []
         try:
             cls.check_expfile(expfile)
         except ValueError as e:
