@@ -915,7 +915,10 @@ class Job:
         cmd += '--jobid %s:$OAR_JOB_ID ' % site
         if args['deploy']:
             cmd += '--deploy %s ' % args['deploy']
-        cmd += '--expfile %s' % ' '.join([f.basename for f in args['expfile']])
+        try:
+            cmd += '--expfile %s' % ' '.join([f.basename for f in args['expfile']])
+        except KeyError:
+            pass
         return cmd
 
     @classmethod
