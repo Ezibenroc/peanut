@@ -663,7 +663,10 @@ class Job:
         result['deployment'] = self.deploy
         result['command'] = ' '.join(sys.argv)
         result['replay_command'] = self.replay_command
-        result['expfile'] = [f.basename for f in self.expfile]
+        try:
+            result['expfile'] = [f.basename for f in self.expfile]
+        except AttributeError:
+            pass
         result.update(self.information)
         return result
 
