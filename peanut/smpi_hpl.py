@@ -76,7 +76,7 @@ class SMPIHPL(AbstractHPL):
     def setup(self):
         super().setup()
         self.apt_install('python3', 'libboost-dev', 'libatlas-base-dev')  # we don't care about which BLAS is installed
-        self.git_clone('https://github.com/simgrid/simgrid.git', 'simgrid', checkout='v3.20')
+        self.git_clone('https://github.com/simgrid/simgrid.git', 'simgrid', checkout='v3.20', patch=self.simgrid_patch)
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
         self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir)
@@ -176,3 +176,19 @@ class SMPIHPL(AbstractHPL):
         exp = cls.fact_design(factors)
         random.shuffle(exp)
         return exp
+
+    simgrid_patch = '''
+diff --git a/src/surf/sg_platf.cpp b/src/surf/sg_platf.cpp
+index f521fd925..fcb273088 100644
+--- a/src/surf/sg_platf.cpp
++++ b/src/surf/sg_platf.cpp
+@@ -220,7 +220,7 @@ void sg_platf_new_cluster(simgrid::kernel::routing::ClusterCreationArgs* cluster
+       link.id        = tmp_link;
+       link.bandwidth = cluster->loopback_bw;
+       link.latency   = cluster->loopback_lat;
+-      link.policy    = simgrid::s4u::Link::SharingPolicy::FATPIPE;
++      link.policy    = simgrid::s4u::Link::SharingPolicy::SHARED;
+       sg_platf_new_link(&link);
+       linkUp   = simgrid::s4u::Link::by_name_or_null(tmp_link);
+       linkDown = simgrid::s4u::Link::by_name_or_null(tmp_link);
+'''

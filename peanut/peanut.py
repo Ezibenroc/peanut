@@ -721,7 +721,7 @@ class Job:
             short_target = host[:host.find('.')]
             self.director.run('ssh -o "StrictHostKeyChecking no" %s hostname' % short_target, directory='/root')
 
-    def git_clone(self, url, repository_path, checkout=None, recursive=False):
+    def git_clone(self, url, repository_path, checkout=None, recursive=False, patch=None):
         cmd = 'git clone'
         if recursive:
             cmd += ' --recursive'
@@ -730,10 +730,15 @@ class Job:
             self.nodes.run('git checkout %s' % checkout, directory=repository_path)
         git_hash = self.nodes.run_unique('git rev-parse HEAD', directory=repository_path)
         git_hash = git_hash.stdout.strip()
+        git_info = {'path': repository_path, 'url': url, 'hash': git_hash}
+        if patch:
+            self.nodes.write_files(patch, '/tmp/patch.diff')
+            self.nodes.run('git apply /tmp/patch.diff', directory=repository_path)
+            git_info['patch'] = patch
         key_name = 'git_repositories'
         if key_name not in self.information:
             self.information[key_name] = []
-        self.information[key_name].append({'path': repository_path, 'url': url, 'hash': git_hash})
+        self.information[key_name].append(git_info)
 
     @classmethod
     def parse_jobid(cls, jobid):
