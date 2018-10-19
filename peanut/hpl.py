@@ -96,11 +96,10 @@ class HPL(AbstractHPL):
                                       directory=self.hpl_dir+'/bin/Debian')
                 mpi_trace = 'trace_mpi_%d.csv' % i
                 blas_trace = os.path.join(self.director.working_dir, 'trace_blas_%d.csv' % i)
-                self.director.run('pj_dump %s > %s' % (paje_file, mpi_trace))
+                self.director.run('pj_dump %s | grep -v MPI_Iprobe > %s' % (paje_file, mpi_trace))
                 self.nodes.run('rm -f rastro-*rst', directory=self.hpl_dir+'/bin/Debian')
                 self.director.run('bash concatenate.sh blas*trace > %s' % blas_trace, directory=self.hpl_dir+'/bin/Debian')
                 self.nodes.run('rm -f blas*trace', directory=self.hpl_dir+'/bin/Debian')
-                self.add_local_to_archive(paje_file)
                 self.add_local_to_archive(mpi_trace)
                 self.add_local_to_archive(blas_trace)
             total_time, gflops, residual = self.parse_hpl(output.stdout)
