@@ -176,7 +176,7 @@ class AbstractHPL(Job):
         random.shuffle(exp)
         return exp
 
-    hpl_early_termination_patch = '''
+    hpl_early_termination_patch = r'''
 diff --git a/src/pgesv/HPL_pdgesv0.c b/src/pgesv/HPL_pdgesv0.c
 index 8bcf71a..ff2a1b9 100644
 --- a/src/pgesv/HPL_pdgesv0.c
@@ -190,7 +190,7 @@ index 8bcf71a..ff2a1b9 100644
 +      }
  #ifdef HPL_PROGRESS_REPORT
        /* if this is process 0,0 and not the first panel */
-       if ( GRID->myrow == 0 && GRID->mycol == 0 && j > 0 )
+       if ( GRID->myrow == 0 && GRID->mycol == 0 && j > 0 ) 
 diff --git a/src/pgesv/HPL_pdgesvK2.c b/src/pgesv/HPL_pdgesvK2.c
 index 3aa7f2b..ed9c90a 100644
 --- a/src/pgesv/HPL_pdgesvK2.c
@@ -204,7 +204,7 @@ index 3aa7f2b..ed9c90a 100644
 +      }
  #ifdef HPL_PROGRESS_REPORT
        /* if this is process 0,0 and not the first panel */
-       if ( GRID->myrow == 0 && mycol == 0 && j > 0 )
+       if ( GRID->myrow == 0 && mycol == 0 && j > 0 ) 
     '''
 
     @property
