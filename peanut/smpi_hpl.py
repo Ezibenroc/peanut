@@ -75,7 +75,7 @@ class SMPIHPL(AbstractHPL):
 
     def setup(self):
         super().setup()
-        self.apt_install('python3', 'libboost-dev', 'libatlas-base-dev')  # we don't care about which BLAS is installed
+        self.apt_install('python3', 'libboost-dev', 'libatlas-base-dev', 'pajeng')
         self.git_clone('https://github.com/simgrid/simgrid.git', 'simgrid', checkout='v3.20')
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
@@ -83,9 +83,12 @@ class SMPIHPL(AbstractHPL):
         self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch)
         self.nodes.run('sed -ri "s|TOPdir\s*=.+|TOPdir="`pwd`"|g" Make.SMPI', directory=self.hpl_dir)
         self.nodes.run('make startup arch=SMPI', directory=self.hpl_dir)
+        options = '-DSMPI_OPTIMIZATION'
+        if self.trace_execution:
+            options += ' -DSMPI_MEASURE'
         while True:
             try:
-                self.nodes.run('make SMPI_OPTS="-DSMPI_OPTIMIZATION" arch=SMPI', directory=self.hpl_dir)
+                self.nodes.run('make SMPI_OPTS="%s" arch=SMPI' % options, directory=self.hpl_dir)
             except RunError as e:  # for some reason, this command fails sometime...
                 msg = str(e).split('\n')[0]
                 logger.error('Previous command failed with message %s' % msg)
@@ -100,6 +103,13 @@ class SMPIHPL(AbstractHPL):
         self.nodes.write_files('1', '/proc/sys/vm/nr_hugepages')
 
     def run_exp(self):
+        script = '''
+            head -1 $1
+            for filename in $*; do
+               tail -n +2  $filename
+            done
+        '''
+        self.director.write_files(script, self.hpl_dir+'/bin/SMPI/concatenate.sh')
         results = []
         assert len(self.expfile) == 2
         platform = [f for f in self.expfile if f.extension == 'xml']
@@ -141,7 +151,13 @@ class SMPIHPL(AbstractHPL):
             cmd += '--cfg=smpi/display-timing:yes -platform platform.xml -hostfile hosts.txt ./xhpl'
             output = self.director.run_unique(cmd, directory=self.hpl_dir+'/bin/SMPI')
             if self.trace_execution:
-                self.add_local_to_archive(paje_file)
+                mpi_trace = 'trace_mpi_%d.csv' % i
+                blas_trace = os.path.join(self.director.working_dir, 'trace_blas_%d.csv' % i)
+                self.director.run('pj_dump %s | grep -v MPI_Iprobe > %s' % (paje_file, mpi_trace))
+                self.director.run('bash concatenate.sh blas*trace > %s' % blas_trace, directory=self.hpl_dir+'/bin/SMPI')
+                self.nodes.run('rm -f blas*trace', directory=self.hpl_dir+'/bin/SMPI')
+                self.add_local_to_archive(mpi_trace)
+                self.add_local_to_archive(blas_trace)
             total_time, gflops, residual = self.parse_hpl(output.stdout)
             new_res = dict(exp)
             new_res['time'] = total_time
