@@ -23,6 +23,9 @@ class HPL(AbstractHPL):
         if self.trace_execution:
             self.nodes.write_files(self.patch, self.hpl_dir + '/patch.diff')
             self.nodes.run('git apply patch.diff', directory=self.hpl_dir)
+        if self.terminate_early:
+            self.nodes.write_files(self.hpl_early_termination_patch, self.hpl_dir + '/patch.diff')
+            self.nodes.run('git apply patch.diff', directory=self.hpl_dir)
         self.nodes.write_files(self.makefile, os.path.join(self.hpl_dir, 'Make.Debian'))
         self.nodes.run('make startup arch=Debian', directory=self.hpl_dir)
         while True:

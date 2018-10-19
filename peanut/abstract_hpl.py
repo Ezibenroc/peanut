@@ -20,7 +20,8 @@ class AbstractHPL(Job):
                     'thread_per_process': range(1, 129),
                     }
     expfile_types = {fact: int for fact in expfile_sets}
-    trace_execution = False
+    trace_execution = True
+    terminate_early = True
 
     def install_akypuera(self, smpi):
         self.git_clone('https://github.com/schnorr/akypuera.git', 'akypuera', recursive=True)
@@ -174,6 +175,37 @@ class AbstractHPL(Job):
         exp = cls.fact_design(factors)
         random.shuffle(exp)
         return exp
+
+    hpl_early_termination_patch = '''
+diff --git a/src/pgesv/HPL_pdgesv0.c b/src/pgesv/HPL_pdgesv0.c
+index 8bcf71a..ff2a1b9 100644
+--- a/src/pgesv/HPL_pdgesv0.c
++++ b/src/pgesv/HPL_pdgesv0.c
+@@ -126,6 +126,9 @@ void HPL_pdgesv0
+    for( j = 0; j < N; j += nb )
+    {
+       n = N - j; jb = Mmin( n, nb );
++      if(j/nb >= 5) {
++        return;
++      }
+ #ifdef HPL_PROGRESS_REPORT
+       /* if this is process 0,0 and not the first panel */
+       if ( GRID->myrow == 0 && GRID->mycol == 0 && j > 0 )
+diff --git a/src/pgesv/HPL_pdgesvK2.c b/src/pgesv/HPL_pdgesvK2.c
+index 3aa7f2b..ed9c90a 100644
+--- a/src/pgesv/HPL_pdgesvK2.c
++++ b/src/pgesv/HPL_pdgesvK2.c
+@@ -172,6 +172,9 @@ void HPL_pdgesvK2
+    for( j = jstart; j < N; j += nb )
+    {
+       n = N - j; jb = Mmin( n, nb );
++      if((j-jstart)/nb >= 5) {
++        return;
++      }
+ #ifdef HPL_PROGRESS_REPORT
+       /* if this is process 0,0 and not the first panel */
+       if ( GRID->myrow == 0 && mycol == 0 && j > 0 )
+    '''
 
     @property
     def makefile(self):

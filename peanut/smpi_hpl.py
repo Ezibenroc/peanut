@@ -76,10 +76,11 @@ class SMPIHPL(AbstractHPL):
     def setup(self):
         super().setup()
         self.apt_install('python3', 'libboost-dev', 'libatlas-base-dev')  # we don't care about which BLAS is installed
-        self.git_clone('https://github.com/simgrid/simgrid.git', 'simgrid', checkout='v3.20', patch=self.simgrid_patch)
+        self.git_clone('https://github.com/simgrid/simgrid.git', 'simgrid', checkout='v3.20')
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
-        self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir)
+        patch = self.hpl_early_termination_patch if self.terminate_early else None
+        self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch)
         self.nodes.run('sed -ri "s|TOPdir\s*=.+|TOPdir="`pwd`"|g" Make.SMPI', directory=self.hpl_dir)
         self.nodes.run('make startup arch=SMPI', directory=self.hpl_dir)
         while True:
@@ -177,7 +178,7 @@ class SMPIHPL(AbstractHPL):
         random.shuffle(exp)
         return exp
 
-    simgrid_patch = '''
+    simgrid_loopback_patch = '''
 diff --git a/src/surf/sg_platf.cpp b/src/surf/sg_platf.cpp
 index f521fd925..fcb273088 100644
 --- a/src/surf/sg_platf.cpp
