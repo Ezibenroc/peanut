@@ -232,4 +232,25 @@ index dd2b3fd..07f83c3 100644
     MPI_Finalize();
     exit( 0 );
 
+diff --git a/testing/ptest/HPL_pdtest.c b/testing/ptest/HPL_pdtest.c
+index 9039693..33b11ac 100644
+--- a/testing/ptest/HPL_pdtest.c
++++ b/testing/ptest/HPL_pdtest.c
+@@ -48,6 +48,7 @@
+  * Include files
+  */
+ #include "hpl.h"
++#include <sys/time.h>
+
+ #ifdef STDC_HEADERS
+ void HPL_pdtest
+@@ -136,6 +137,8 @@ void HPL_pdtest
+ /* ..
+  * .. Executable Statements ..
+  */
++   struct timeval tmp_time = {};
++   get_timestamp(tmp_time); // initialize the timer...
+    (void) HPL_grid_info( GRID, &nprow, &npcol, &myrow, &mycol );
+
+    mat.n  = N; mat.nb = NB; mat.info = 0;
 '''
