@@ -145,6 +145,7 @@ class SMPIHPL(AbstractHPL):
             if self.trace_execution:
                 paje_file = os.path.join(self.director.working_dir, 'trace_%d.paje' % i)
                 cmd += '--cfg=tracing:yes --cfg=tracing/filename:%s --cfg=tracing/smpi:1 ' % paje_file
+                cmd += '--cfg=tracing/smpi/display-sizes:yes '
                 cmd += '--cfg=tracing/smpi/computing:yes '
             cmd += '--cfg=smpi/shared-malloc-hugepage:/root/huge '
             cmd += '--cfg=smpi/shared-malloc-blocksize:%d ' % (1 << 21)
@@ -153,7 +154,7 @@ class SMPIHPL(AbstractHPL):
             if self.trace_execution:
                 mpi_trace = 'trace_mpi_%d.csv' % i
                 blas_trace = os.path.join(self.director.working_dir, 'trace_blas_%d.csv' % i)
-                self.director.run('pj_dump %s | grep -v MPI_Iprobe > %s' % (paje_file, mpi_trace))
+                self.director.run('pj_dump -u %s | grep -v MPI_Iprobe > %s' % (paje_file, mpi_trace))
                 self.director.run('bash concatenate.sh blas*trace > %s' % blas_trace, directory=self.hpl_dir+'/bin/SMPI')
                 self.nodes.run('rm -f blas*trace', directory=self.hpl_dir+'/bin/SMPI')
                 self.add_local_to_archive(mpi_trace)

@@ -23,16 +23,6 @@ class AbstractHPL(Job):
     trace_execution = True
     terminate_early = True
 
-    def install_akypuera(self, smpi):
-        self.git_clone('https://github.com/schnorr/akypuera.git', 'akypuera', recursive=True)
-        mode = 'ON' if smpi else 'FALSE'
-        self.nodes.run('mkdir build && cd build && cmake -DSMPI=%s ..' % mode, directory='akypuera')
-        self.nodes.run('make -j 32', directory='akypuera/build')
-
-    @property
-    def akypuera_dir(self):
-        return os.path.join(self.nodes.working_dir, 'akypuera/build')
-
     @classmethod
     def check_exp(cls, exp):
         for fact, allowed_val in cls.expfile_sets.items():
@@ -190,7 +180,7 @@ index 8bcf71a..ff2a1b9 100644
 +      }
  #ifdef HPL_PROGRESS_REPORT
        /* if this is process 0,0 and not the first panel */
-       if ( GRID->myrow == 0 && GRID->mycol == 0 && j > 0 ) 
+       if ( GRID->myrow == 0 && GRID->mycol == 0 && j > 0 )
 diff --git a/src/pgesv/HPL_pdgesvK2.c b/src/pgesv/HPL_pdgesvK2.c
 index 3aa7f2b..ed9c90a 100644
 --- a/src/pgesv/HPL_pdgesvK2.c
@@ -204,7 +194,7 @@ index 3aa7f2b..ed9c90a 100644
 +      }
  #ifdef HPL_PROGRESS_REPORT
        /* if this is process 0,0 and not the first panel */
-       if ( GRID->myrow == 0 && mycol == 0 && j > 0 ) 
+       if ( GRID->myrow == 0 && mycol == 0 && j > 0 )
     '''
 
     @property
