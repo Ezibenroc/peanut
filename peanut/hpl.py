@@ -23,7 +23,7 @@ class HPL(AbstractHPL):
         )
         if self.trace_execution:
             self.apt_install('pajeng')
-            self.install_akypuera(smpi=False)
+            self.install_akypuera()
         self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout='v0.3.1')
         self.nodes.run('make -j 64', directory='openblas')
         self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
@@ -31,10 +31,10 @@ class HPL(AbstractHPL):
         self.nodes.run('tar -xvf hpl-2.2.tar.gz')
         if self.trace_execution:
             self.nodes.write_files(self.patch, self.hpl_dir + '/patch.diff')
-            self.nodes.run('git apply patch.diff', directory=self.hpl_dir)
+            self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
         if self.terminate_early:
             self.nodes.write_files(self.hpl_early_termination_patch, self.hpl_dir + '/patch.diff')
-            self.nodes.run('git apply patch.diff', directory=self.hpl_dir)
+            self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
         self.nodes.write_files(self.makefile, os.path.join(self.hpl_dir, 'Make.Debian'))
         self.nodes.run('make startup arch=Debian', directory=self.hpl_dir)
         while True:

@@ -733,7 +733,7 @@ class Job:
         git_info = {'path': repository_path, 'url': url, 'hash': git_hash}
         if patch:
             self.nodes.write_files(patch, '/tmp/patch.diff')
-            self.nodes.run('git apply /tmp/patch.diff', directory=repository_path)
+            self.nodes.run('git apply --whitespace=fix /tmp/patch.diff', directory=repository_path)
             git_info['patch'] = patch
         key_name = 'git_repositories'
         if key_name not in self.information:
