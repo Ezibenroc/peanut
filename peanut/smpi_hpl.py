@@ -76,7 +76,8 @@ class SMPIHPL(AbstractHPL):
     def setup(self):
         super().setup()
         self.apt_install('python3', 'libboost-dev', 'libatlas-base-dev', 'pajeng')
-        self.git_clone('https://github.com/simgrid/simgrid.git', 'simgrid', checkout='v3.20')
+        self.git_clone('https://framagit.org/simgrid/simgrid.git', 'simgrid',
+                       checkout='a6f883f0e28e60a805227007ec71cac80bced118')
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
         patch = self.hpl_early_termination_patch if self.terminate_early else None
