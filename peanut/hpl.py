@@ -6,7 +6,7 @@ from .abstract_hpl import AbstractHPL
 
 class HPL(AbstractHPL):
     def install_akypuera(self):
-        self.git_clone('https://github.com/schnorr/akypuera.git', 'akypuera', recursive=True, patch=self.akypuera_patch)
+        self.git_clone('https://github.com/schnorr/akypuera.git', 'akypuera', recursive=True)
         self.nodes.run('mkdir build && cd build && cmake ..', directory='akypuera')
         self.nodes.run('make -j 32', directory='akypuera/build')
 
