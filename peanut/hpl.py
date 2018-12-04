@@ -79,6 +79,7 @@ class HPL(AbstractHPL):
             hpl_file = self.generate_hpl_file(**exp)
             self.nodes.write_files(hpl_file, os.path.join(self.hpl_dir, 'bin/Debian/HPL.dat'))
             cmd = 'mpirun --allow-run-as-root --bind-to none --timestamp-output -np %d -x OMP_NUM_THREADS=%d -H %s'
+            cmd += ' --mca orte_rsh_agent ssh --mca pml ob1 --mca btl tcp,self'  # https://gitlab.inria.fr/fheinric/paper-simgrid-energy/blob/master/experiments/mpi_hpl_dvfs_1core/taurus_2017-01-16/execution/HPL_1core_launcher.zsh
             cmd += ' -x LD_LIBRARY_PATH=/tmp/lib'
             if self.trace_execution:
                 lib = os.path.join(self.akypuera_dir, 'libaky.so')
