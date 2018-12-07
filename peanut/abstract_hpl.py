@@ -195,6 +195,21 @@ index 3aa7f2b..ed9c90a 100644
  #ifdef HPL_PROGRESS_REPORT
        /* if this is process 0,0 and not the first panel */
        if ( GRID->myrow == 0 && mycol == 0 && j > 0 )
+diff --git a/testing/ptest/HPL_pdtest.c b/testing/ptest/HPL_pdtest.c
+index 33b11ac..dea0d93 100644
+--- a/testing/ptest/HPL_pdtest.c
++++ b/testing/ptest/HPL_pdtest.c
+@@ -197,7 +197,10 @@ void HPL_pdtest
+    HPL_ptimer_boot(); (void) HPL_barrier( GRID->all_comm );
+    time( &current_time_start );
+    HPL_ptimer( 0 );
++   int n = 12;
++   MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    HPL_pdgesv( GRID, ALGO, &mat );
++   MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    HPL_ptimer( 0 );
+    time( &current_time_end );
+ #ifdef HPL_CALL_VSIPL
     '''
 
     @property
