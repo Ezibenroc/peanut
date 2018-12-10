@@ -1,6 +1,7 @@
 import itertools
 import random
-from .peanut import Job, logger
+import time
+from .peanut import Job, logger, RunError
 
 
 class BLASCalibration(Job):
@@ -56,20 +57,24 @@ class BLASCalibration(Job):
         self.nodes.run('OMP_NUM_THREADS=%d %s %s -o ./result_multicore.csv' % (nb_cores, ldlib, cmd),
                        directory=path)
         numactl_str = 'numactl --physcpubind=%d --localalloc'
-        numactl = numactl_str % (nb_cores-1)
-        self.nodes.run('OMP_NUM_THREADS=1 %s %s %s -o ./result_monocore.csv' % (ldlib, numactl, cmd),
-                       directory=path)
-        for i in range(nb_cores-1):
+        monocore_files = []
+        for i in range(nb_cores):
             numactl = numactl_str % i
-            self.nodes.run('tmux new-session -d -s tmux_%d "OMP_NUM_THREADS=1 %s %s %s -l"' % (i, ldlib, numactl, cmd),
-                           directory=path)
-        numactl = numactl_str % (nb_cores-1)
-        self.nodes.run('OMP_NUM_THREADS=1 %s %s %s -o ./result_monocore_contention.csv' % (ldlib, numactl, cmd),
-                       directory=path)
+            filename = 'result_monocore_%d.csv' % i
+            monocore_files.append(filename)
+            command = 'tmux new-session -d -s tmux_%d "OMP_NUM_THREADS=1' % i
+            command += ' %s %s %s -l 2 -o %s"' % (ldlib, numactl, cmd, filename)
+            self.nodes.run(command, directory=path)
+        # Waiting for all the commands to be finished
+        while True:
+            try:
+                time.sleep(60)
+                self.nodes.run('tmux ls')
+            except RunError:
+                break
         self.add_local_to_archive(path + '/result_multicore.csv')
-        self.add_local_to_archive(path + '/result_monocore.csv')
-        self.add_local_to_archive(path + '/result_monocore_contention.csv')
-        self.nodes.run('tmux kill-server')
+        for filename in monocore_files:
+            self.add_local_to_archive(path + '/' + filename)
 
     @classmethod
     def gen_exp(cls):
