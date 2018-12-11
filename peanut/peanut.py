@@ -603,6 +603,7 @@ class Job:
                     'topology.pdf': 'lstopo -f topology.pdf',
                     'lspci.txt': 'lspci -v > lspci.txt',
                     'dmidecode.txt': 'dmidecode > dmidecode.txt',
+                    'lsmod.txt': 'lsmod > lsmod.txt',
                     }
         for filename, command in commands_with_files.items():
             self.__add_raw_information_to_archive(filename, command)
