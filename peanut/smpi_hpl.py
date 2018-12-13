@@ -87,7 +87,8 @@ class SMPIHPL(AbstractHPL):
             patches.append(self.hpl_bcast_patch)
         patches.append(self.blas_reg_patch)
         patch = '\n'.join(patches) if patches else None
-        self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch)
+        self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch,
+                       checkout='2a2823f19b5a981f2470dc7403c369ac48f60a6d')
         self.nodes.run('sed -ri "s|TOPdir\s*=.+|TOPdir="`pwd`"|g" Make.SMPI', directory=self.hpl_dir)
         self.nodes.run('make startup arch=SMPI', directory=self.hpl_dir)
         options = '-DSMPI_OPTIMIZATION'
