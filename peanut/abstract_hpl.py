@@ -21,7 +21,8 @@ class AbstractHPL(Job):
                     }
     expfile_types = {fact: int for fact in expfile_sets}
     trace_execution = True
-    terminate_early = True
+    terminate_early = False
+    insert_bcast = True
 
     @classmethod
     def check_exp(cls, exp):
@@ -195,6 +196,9 @@ index 3aa7f2b..ed9c90a 100644
  #ifdef HPL_PROGRESS_REPORT
        /* if this is process 0,0 and not the first panel */
        if ( GRID->myrow == 0 && mycol == 0 && j > 0 )
+'''
+
+    hpl_bcast_patch = r'''
 diff --git a/testing/ptest/HPL_pdtest.c b/testing/ptest/HPL_pdtest.c
 index 33b11ac..dea0d93 100644
 --- a/testing/ptest/HPL_pdtest.c

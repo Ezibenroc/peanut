@@ -6,7 +6,8 @@ from .abstract_hpl import AbstractHPL
 
 class HPL(AbstractHPL):
     def install_akypuera(self):
-        self.git_clone('https://github.com/schnorr/akypuera.git', 'akypuera', recursive=True)
+        self.git_clone('https://github.com/Ezibenroc/akypuera.git', 'akypuera', recursive=True,
+                       patch=self.akypuera_patch)
         self.nodes.run('mkdir build && cd build && cmake ..', directory='akypuera')
         self.nodes.run('make -j 32', directory='akypuera/build')
 
@@ -34,6 +35,9 @@ class HPL(AbstractHPL):
             self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
         if self.terminate_early:
             self.nodes.write_files(self.hpl_early_termination_patch, self.hpl_dir + '/patch.diff')
+            self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
+        if self.insert_bcast:
+            self.nodes.write_files(self.hpl_bcast_patch, self.hpl_dir + '/patch.diff')
             self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
         self.nodes.write_files(self.makefile, os.path.join(self.hpl_dir, 'Make.Debian'))
         self.nodes.run('make startup arch=Debian', directory=self.hpl_dir)
@@ -133,21 +137,8 @@ class HPL(AbstractHPL):
     @property
     def akypuera_patch(self):
         return r'''
-diff --git a/include/aky_rastro.h b/include/aky_rastro.h
-index 30a0163..7b955c6 100644
---- a/include/aky_rastro.h
-+++ b/include/aky_rastro.h
-@@ -17,6 +17,8 @@ void rst_event_iiiii_ptr(rst_buffer_t *ptr, u_int16_t type, u_int32_t i0, u_int3
- #define rst_event_iiiii(type, i0, i1, i2, i3, i4) rst_event_iiiii_ptr(RST_PTR, type, i0, i1, i2, i3, i4)
- void rst_event_l_ptr(rst_buffer_t *ptr, u_int16_t type, u_int64_t l0);
- #define rst_event_l(type, l0) rst_event_l_ptr(RST_PTR, type, l0)
-+void rst_event_il_ptr(rst_buffer_t *ptr, u_int16_t type, u_int32_t i0, u_int64_t l0);
-+#define rst_event_il(type, i0, l0) rst_event_il_ptr(RST_PTR, type, i0, l0)
- void rst_event_iil_ptr(rst_buffer_t *ptr, u_int16_t type, u_int32_t i0, u_int32_t i1, u_int64_t l0);
- #define rst_event_iil(type, i0, i1, l0) rst_event_iil_ptr(RST_PTR, type, i0, i1, l0)
-
 diff --git a/src/aky.c b/src/aky.c
-index dde4789..5b2e4e5 100644
+index 47feb15..5b2e4e5 100644
 --- a/src/aky.c
 +++ b/src/aky.c
 @@ -939,9 +939,7 @@ MPI_Comm comm;
@@ -160,27 +151,7 @@ index dde4789..5b2e4e5 100644
    return returnVal;
  }
 
-@@ -954,7 +952,9 @@ int tag;
- MPI_Comm comm;
- MPI_Request *request;
- {
--  rst_event(MPI_IRECV_IN);
-+  int tsize;
-+  PMPI_Type_size(datatype, &tsize);
-+  rst_event_i(MPI_IRECV_IN, count * tsize);
-   int returnVal =
-       PMPI_Irecv(buf, count, datatype, source, tag, comm, request);
-   rst_event(MPI_IRECV_OUT);
-@@ -993,7 +993,7 @@ MPI_Request *request;
- {
-   int tsize;
-   PMPI_Type_size(datatype, &tsize);
--  rst_event_l(MPI_ISEND_IN, send_mark);
-+  rst_event_il(MPI_ISEND_IN, count * tsize, send_mark);
-   rst_event_iil(AKY_PTP_SEND, AKY_translate_rank(comm, dest), count * tsize, send_mark);
-   int returnVal =
-       PMPI_Isend(buf, count, datatype, dest, tag, comm, request);
-@@ -1058,9 +1058,7 @@ int tag;
+@@ -1060,9 +1058,7 @@ int tag;
  MPI_Comm comm;
  MPI_Status *status;
  {
@@ -190,124 +161,6 @@ index dde4789..5b2e4e5 100644
    return returnVal;
  }
 
-@@ -1073,8 +1071,10 @@ int tag;
- MPI_Comm comm;
- MPI_Status *status;
- {
-+  int tsize;
-+  PMPI_Type_size(datatype, &tsize);
-   MPI_Status stat2;
--  rst_event(MPI_RECV_IN);
-+  rst_event_i(MPI_RECV_IN, count * tsize);
-   int returnVal =
-       PMPI_Recv(buf, count, datatype, source, tag, comm, &stat2);
-   rst_event_i(AKY_PTP_RECV, AKY_translate_rank(comm, stat2.MPI_SOURCE));
-@@ -1128,7 +1128,7 @@ MPI_Comm comm;
- {
-   int tsize;
-   PMPI_Type_size(datatype, &tsize);
--  rst_event_l(MPI_SEND_IN, send_mark);
-+  rst_event_il(MPI_SEND_IN, count * tsize, send_mark);
-   rst_event_iil(AKY_PTP_SEND, AKY_translate_rank(comm, dest), count * tsize, send_mark);
-   int returnVal = PMPI_Send(buf, count, datatype, dest, tag, comm);
-   rst_event(MPI_SEND_OUT);
-diff --git a/src/aky/aky_converter.c b/src/aky/aky_converter.c
-index 860f3a6..586fae9 100644
---- a/src/aky/aky_converter.c
-+++ b/src/aky/aky_converter.c
-@@ -15,9 +15,11 @@
-     along with Akypuera. If not, see <http://www.gnu.org/licenses/>.
- */
- #include <inttypes.h>
-+#include <assert.h>
- #include "aky2paje.h"
-
--int specialPushState; //Identifier for PushState with mark
-+int specialPushStateSend; //Identifier for PushState for MPI_Send and MPI_Isend
-+int specialPushStateRecv; //Identifier for PushState for MPI_Recv
- int specialStartLinkSizeMark; //Identifier for StartLink with size and mark
-
- /* DRY */
-@@ -188,7 +190,8 @@ int main(int argc, char **argv)
-     /* output build version, date and conversion for aky in the trace */
-     aky_dump_version (PROGRAM, argv, argc);
-     poti_header();
--    specialPushState = poti_header_DeclareEvent (PAJE_PushState, 1, "SendMark string");
-+    specialPushStateSend = poti_header_DeclareEvent (PAJE_PushState, 2, "MsgSize string", "SendMark string");
-+    specialPushStateRecv = poti_header_DeclareEvent (PAJE_PushState, 1, "MsgSize string");
-
-     specialStartLinkSizeMark = poti_header_DeclareEvent (PAJE_StartLink, 2, "Size string", "Mark string");
-     aky_paje_hierarchy();
-@@ -293,10 +296,6 @@ int main(int argc, char **argv)
-     case MPI_SCATTER_IN:
-     case MPI_SCATTERV_IN:
-     case MPI_WAIT_IN:
--    case MPI_IRECV_IN:
--    case MPI_ISEND_IN:
--    case MPI_RECV_IN:
--    case MPI_SEND_IN:
-     case MPI_BCAST_IN:
-     case MPI_BARRIER_IN:
-     case MPI_GATHER_IN:
-@@ -419,12 +418,38 @@ int main(int argc, char **argv)
-           /* uint64 upper range is a 20 digits integer in base 10 */
-           char mark[21];
-           snprintf(mark, 21, "%"PRIu64, event.v_uint64[0]);
--	  poti_user_PushState (specialPushState, timestamp, mpi_process, "STATE", value, 1, mark);
-+	  poti_user_PushState (specialPushStateSend, timestamp, mpi_process, "STATE", value, 1, mark);
-         }else{
-           poti_PushState(timestamp, mpi_process, "STATE", value);
-         }
-       }
-       break;
-+    case MPI_ISEND_IN:
-+    case MPI_SEND_IN:
-+      if (!arguments.no_states){
-+        char value[AKY_DEFAULT_STR_SIZE];
-+        snprintf(value, AKY_DEFAULT_STR_SIZE, "%s", name_get(event.type));
-+        assert(event.ct.n_uint32 >= 1); // for obscure reasons, there is a second uint32...
-+        assert(event.ct.n_uint64 == 1);
-+          /* uint64 upper range is a 20 digits integer in base 10 */
-+          char size[21], mark[21];
-+          snprintf(mark, 21, "%"PRIu64, event.v_uint64[0]);
-+          snprintf(size, 21, "%"PRIu64, event.v_uint32[0]);
-+          poti_user_PushState (specialPushStateSend, timestamp, mpi_process, "STATE", value, 2, size, mark);
-+      }
-+      break;
-+    case MPI_IRECV_IN:
-+    case MPI_RECV_IN:
-+      if (!arguments.no_states){
-+        char value[AKY_DEFAULT_STR_SIZE];
-+        snprintf(value, AKY_DEFAULT_STR_SIZE, "%s", name_get(event.type));
-+        assert(event.ct.n_uint32 == 1);
-+          /* uint64 upper range is a 20 digits integer in base 10 */
-+          char size[21];
-+          snprintf(size, 21, "%"PRIu64, event.v_uint32[0]);
-+          poti_user_PushState (specialPushStateRecv, timestamp, mpi_process, "STATE", value, 1, size);
-+      }
-+      break;
-     case MPI_COMM_SPAWN_OUT:
-     case MPI_COMM_GET_NAME_OUT:
-     case MPI_COMM_SET_NAME_OUT:
-diff --git a/src/aky_rastro.c b/src/aky_rastro.c
-index 7adac2f..26615b8 100644
---- a/src/aky_rastro.c
-+++ b/src/aky_rastro.c
-@@ -60,6 +60,14 @@ void rst_event_l_ptr(rst_buffer_t *ptr, u_int16_t type, u_int64_t l0)
-   rst_endevent(ptr);
- }
-
-+void rst_event_il_ptr(rst_buffer_t *ptr, u_int16_t type, u_int32_t i0, u_int64_t l0)
-+{
-+  rst_startevent(ptr, type<<18|0x24770);
-+  RST_PUT(ptr, u_int64_t, l0);
-+  RST_PUT(ptr, u_int32_t, i0);
-+  rst_endevent(ptr);
-+}
-+
- void rst_event_iil_ptr(rst_buffer_t *ptr, u_int16_t type, u_int32_t i0, u_int32_t i1, u_int64_t l0)
- {
-   rst_startevent(ptr, type<<18|0x24770);
 '''
 
     @property

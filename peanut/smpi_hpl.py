@@ -80,7 +80,12 @@ class SMPIHPL(AbstractHPL):
                        checkout='a6f883f0e28e60a805227007ec71cac80bced118')
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
-        patch = self.hpl_early_termination_patch if self.terminate_early else None
+        patches = []
+        if self.terminate_early:
+            patches.append(self.hpl_early_termination_patch)
+        if self.insert_bcast:
+            patches.append(self.hpl_bcast_patch)
+        patch = '\n'.join(patches) if patches else None
         self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch)
         self.nodes.run('sed -ri "s|TOPdir\s*=.+|TOPdir="`pwd`"|g" Make.SMPI', directory=self.hpl_dir)
         self.nodes.run('make startup arch=SMPI', directory=self.hpl_dir)
