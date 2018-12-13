@@ -85,6 +85,7 @@ class SMPIHPL(AbstractHPL):
             patches.append(self.hpl_early_termination_patch)
         if self.insert_bcast:
             patches.append(self.hpl_bcast_patch)
+        patches.append(self.blas_reg_patch)
         patch = '\n'.join(patches) if patches else None
         self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch)
         self.nodes.run('sed -ri "s|TOPdir\s*=.+|TOPdir="`pwd`"|g" Make.SMPI', directory=self.hpl_dir)
@@ -216,3 +217,102 @@ index f521fd925..fcb273088 100644
        linkUp   = simgrid::s4u::Link::by_name_or_null(tmp_link);
        linkDown = simgrid::s4u::Link::by_name_or_null(tmp_link);
 '''
+
+    blas_reg_patch = r'''
+diff --git a/include/hpl_blas.h b/include/hpl_blas.h
+index 741b225..3ced2e4 100644
+--- a/include/hpl_blas.h
++++ b/include/hpl_blas.h
+@@ -228,8 +228,43 @@ static double dgemm_intercept = -1;
+ #pragma message "[SMPI] Using smpi_execute for HPL_dgemm."
+ #define  HPL_dgemm(layout, TransA, TransB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc)  ({\
+     if(dgemm_coefficient < 0 || dgemm_intercept < 0) {\
+-        dgemm_coefficient = get_param("SMPI_DGEMM_COEFFICIENT");\
+-        dgemm_intercept = get_param("SMPI_DGEMM_INTERCEPT");\
++        int rank;\
++        MPI_Comm_rank(MPI_COMM_WORLD, &rank);\
++        switch(rank) {\
++            case 0:\
++                dgemm_coefficient=2.323719e-12;\
++                dgemm_intercept=3.401798e-04;\
++                break;\
++            case 1:\
++                dgemm_coefficient=2.394360e-12;\
++                dgemm_intercept=9.812780e-05;\
++                break;\
++            case 2:\
++                dgemm_coefficient=2.494063e-12;\
++                dgemm_intercept=8.229821e-04;\
++                break;\
++            case 3:\
++                dgemm_coefficient=2.345799e-12;\
++                dgemm_intercept=4.526956e-04;\
++                break;\
++            case 4:\
++                dgemm_coefficient=2.462303e-12;\
++                dgemm_intercept=3.162167e-04;\
++                break;\
++            case 5:\
++                dgemm_coefficient=2.999396e-12;\
++                dgemm_intercept=3.729884e-05;\
++                break;\
++            case 6:\
++                dgemm_coefficient=2.344958e-12;\
++                dgemm_intercept=8.719184e-04;\
++                break;\
++            case 7:\
++                dgemm_coefficient=2.338696e-12;\
++                dgemm_intercept=6.135174e-04;\
++                break;\
++            default: exit(1);\
++        }\
+     }\
+     double expected_time;\
+     expected_time = dgemm_coefficient*((double)(M))*((double)(N))*((double)(K)) + dgemm_intercept;\
+@@ -257,8 +292,43 @@ static double dtrsm_intercept = -1;
+ #pragma message "[SMPI] Using smpi_execute for HPL_dtrsm."
+ #define HPL_dtrsm(layout, Side, Uplo, TransA, Diag, M, N, alpha, A, lda, B, ldb) ({\
+     if(dtrsm_coefficient < 0 || dtrsm_intercept < 0) {\
+-        dtrsm_coefficient = get_param("SMPI_DTRSM_COEFFICIENT");\
+-        dtrsm_intercept = get_param("SMPI_DTRSM_INTERCEPT");\
++        int rank;\
++        MPI_Comm_rank(MPI_COMM_WORLD, &rank);\
++        switch(rank) {\
++            case 0:\
++                dtrsm_coefficient=4.330126e-12;\
++                dtrsm_intercept=1.597083e-05;\
++                break;\
++            case 1:\
++                dtrsm_coefficient=4.319634e-12;\
++                dtrsm_intercept=7.507639e-06;\
++                break;\
++            case 2:\
++                dtrsm_coefficient=5.607205e-12;\
++                dtrsm_intercept=4.197323e-05;\
++                break;\
++            case 3:\
++                dtrsm_coefficient=4.338905e-12;\
++                dtrsm_intercept=2.482316e-05;\
++                break;\
++            case 4:\
++                dtrsm_coefficient=3.765359e-12;\
++                dtrsm_intercept=1.683950e-05;\
++                break;\
++            case 5:\
++                dtrsm_coefficient=5.830476e-12;\
++                dtrsm_intercept=6.822817e-06;\
++                break;\
++            case 6:\
++                dtrsm_coefficient=2.984086e-12;\
++                dtrsm_intercept=4.615099e-05;\
++                break;\
++            case 7:\
++                dtrsm_coefficient=4.266092e-12;\
++                dtrsm_intercept=3.448889e-05;\
++                break;\
++            default: exit(1);\
++        }\
+     }\
+     double expected_time;\
+     if((Side) == HplLeft) {\
+    '''
