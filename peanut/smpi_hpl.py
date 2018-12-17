@@ -75,12 +75,12 @@ class SMPIHPL(AbstractHPL):
 
     def setup(self):
         super().setup()
-        self.apt_install('python3', 'libboost-dev', 'libatlas-base-dev', 'pajeng')
+        self.apt_install('python3', 'libboost-dev', 'pajeng')
         self.git_clone('https://framagit.org/simgrid/simgrid.git', 'simgrid',
                        checkout='a6f883f0e28e60a805227007ec71cac80bced118')
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
-        patches = []
+        patches = [self.makefile_patch]
         if self.terminate_early:
             patches.append(self.hpl_early_termination_patch)
         if self.insert_bcast:
@@ -89,7 +89,6 @@ class SMPIHPL(AbstractHPL):
         patch = '\n'.join(patches) if patches else None
         self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch,
                        checkout='2a2823f19b5a981f2470dc7403c369ac48f60a6d')
-        self.nodes.run('sed -ri "s|TOPdir\s*=.+|TOPdir="`pwd`"|g" Make.SMPI', directory=self.hpl_dir)
         self.nodes.run('make startup arch=SMPI', directory=self.hpl_dir)
         options = '-DSMPI_OPTIMIZATION'
         if self.trace_execution:
@@ -149,6 +148,7 @@ class SMPIHPL(AbstractHPL):
             cmd = 'SMPI_DGEMM_COEFFICIENT=%e SMPI_DGEMM_INTERCEPT=%e ' % (dgemm_coeff, dgemm_inter)
             cmd += 'SMPI_DTRSM_COEFFICIENT=%e SMPI_DTRSM_INTERCEPT=%e ' % (dtrsm_coeff, dtrsm_inter)
             cmd += 'TIME="/usr/bin/time:output %U %S %F %R %P" '
+            cmd += 'LD_LIBRARY_PATH=/tmp/lib '
             cmd += 'smpirun -wrapper /usr/bin/time --cfg=smpi/privatize-global-variables:dlopen -np %d ' % nb_hpl_proc
             if self.trace_execution:
                 paje_file = os.path.join(self.director.working_dir, 'trace_%d.paje' % i)
@@ -202,6 +202,34 @@ class SMPIHPL(AbstractHPL):
         exp = cls.fact_design(factors)
         random.shuffle(exp)
         return exp
+
+    makefile_patch = '''
+diff --git a/Make.SMPI b/Make.SMPI
+index c34be62..a610089 100644
+--- a/Make.SMPI
++++ b/Make.SMPI
+@@ -68,7 +68,7 @@ ARCH         = $(arch)
+ # - HPL Directory Structure / HPL library ------------------------------
+ # ----------------------------------------------------------------------
+ #
+-TOPdir       = /home/tom/Documents/Fac/2017_Stage_LIG/hpl-2.2
++TOPdir=/tmp/hpl-2.2
+ INCdir       = $(TOPdir)/include
+ BINdir       = $(TOPdir)/bin/$(ARCH)
+ LIBdir       = $(TOPdir)/lib/$(ARCH)
+@@ -93,9 +93,9 @@ MPlib        =
+ # header files,  LAlib  is defined  to be the name of  the library to be
+ # used. The variable LAdir is only used for defining LAinc and LAlib.
+ #
+-LAdir        = /usr/lib
++LAdir        = /tmp/lib
+ LAinc        =
+-LAlib        = -lblas
++LAlib        = /tmp/lib/libopenblas.so
+ #
+ # ----------------------------------------------------------------------
+ # - F77 / C interface --------------------------------------------------
+ '''
 
     simgrid_loopback_patch = '''
 diff --git a/src/surf/sg_platf.cpp b/src/surf/sg_platf.cpp

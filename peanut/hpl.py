@@ -25,9 +25,6 @@ class HPL(AbstractHPL):
         if self.trace_execution:
             self.apt_install('pajeng')
             self.install_akypuera()
-        self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout='v0.3.1')
-        self.nodes.run('make -j 64', directory='openblas')
-        self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
         self.nodes.run('wget http://www.netlib.org/benchmark/hpl/hpl-2.2.tar.gz')
         self.nodes.run('tar -xvf hpl-2.2.tar.gz')
         if self.trace_execution:
