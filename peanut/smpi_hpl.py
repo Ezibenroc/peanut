@@ -85,7 +85,7 @@ class SMPIHPL(AbstractHPL):
             patches.append(self.hpl_early_termination_patch)
         if self.insert_bcast:
             patches.append(self.hpl_bcast_patch)
-        patches.append(self.blas_reg_patch)
+        patches.append(self.blas_randomization_patch)
         patch = '\n'.join(patches) if patches else None
         self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch)
         self.nodes.run('make startup arch=SMPI', directory=self.hpl_dir)
@@ -246,6 +246,62 @@ index f521fd925..fcb273088 100644
        linkDown = simgrid::s4u::Link::by_name_or_null(tmp_link);
 '''
 
+    blas_randomization_patch = r'''
+diff --git a/include/hpl_blas.h b/include/hpl_blas.h
+index 023ec77..741b225 100644
+--- a/include/hpl_blas.h
++++ b/include/hpl_blas.h
+@@ -188,6 +188,7 @@ STDC_ARGS(
+
+ FILE *get_measure_file();
+ double get_timestamp(struct timeval timestamp);
++double get_random_factor();
+
+ #ifdef SMPI_MEASURE
+ #pragma message "[SMPI] Tracing the calls to BLAS functions."
+@@ -232,6 +233,7 @@ static double dgemm_intercept = -1;
+     }\
+     double expected_time;\
+     expected_time = dgemm_coefficient*((double)(M))*((double)(N))*((double)(K)) + dgemm_intercept;\
++    expected_time *= get_random_factor();\
+     struct timeval before = {};\
+     START_MEASURE(before);\
+     if(expected_time > 0)\
+@@ -264,6 +266,7 @@ static double dtrsm_intercept = -1;
+     } else {\
+         expected_time = dtrsm_coefficient*((double)(M))*((double)(N))*((double)(N)) + dtrsm_intercept;\
+     }\
++    expected_time *= get_random_factor();\
+     struct timeval before = {};\
+     START_MEASURE(before);\
+     if(expected_time > 0)\
+diff --git a/src/blas/HPL_dgemm.c b/src/blas/HPL_dgemm.c
+index 7c017f3..8ee8fb4 100644
+--- a/src/blas/HPL_dgemm.c
++++ b/src/blas/HPL_dgemm.c
+@@ -76,6 +76,20 @@ double get_timestamp(struct timeval timestamp) {
+     return t;
+ }
+
++double get_random_factor() {
++    double min_f = 0.95;
++    double max_f = 1.05;
++    static double factor = -1;
++    if(factor < 0) {
++        int my_rank;
++        MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
++        srand(my_rank + 12);  // we cannot do srand(my_rank) as srand(0) and srand(1) are equivalent
++        double x = (double)rand()/(double)(RAND_MAX);  // x is in [0, 1]
++        factor = min_f + x*(max_f-min_f);
++    }
++    return factor;
++}
++
+
+ #ifndef HPL_dgemm
+
+'''
+
     blas_reg_patch = r'''
 diff --git a/include/hpl_blas.h b/include/hpl_blas.h
 index 741b225..3ced2e4 100644
@@ -343,4 +399,4 @@ index 741b225..3ced2e4 100644
      }\
      double expected_time;\
      if((Side) == HplLeft) {\
-    '''
+'''
