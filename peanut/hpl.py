@@ -164,64 +164,117 @@ index 47feb15..5b2e4e5 100644
     def patch(self):
         return r'''
 diff --git a/include/hpl_blas.h b/include/hpl_blas.h
-index 41e5afd..1b8d40e 100644
+index 41e5afd..f95d8bb 100644
 --- a/include/hpl_blas.h
 +++ b/include/hpl_blas.h
-@@ -169,11 +169,40 @@ STDC_ARGS(
- #define    HPL_dtrsv           cblas_dtrsv
- #define    HPL_dger            cblas_dger
-
+@@ -159,21 +159,78 @@ STDC_ARGS(
+  * HPL C BLAS macro definition
+  * ---------------------------------------------------------------------
+  */
+-#define    HPL_dswap           cblas_dswap
+-#define    HPL_dcopy           cblas_dcopy
+-#define    HPL_daxpy           cblas_daxpy
+-#define    HPL_dscal           cblas_dscal
+-#define    HPL_idamax          cblas_idamax
+-
+-#define    HPL_dgemv           cblas_dgemv
+-#define    HPL_dtrsv           cblas_dtrsv
+-#define    HPL_dger            cblas_dger
+-
 -#define    HPL_dgemm           cblas_dgemm
 -#define    HPL_dtrsm           cblas_dtrsm
--
+
  #endif
 
 +FILE *get_measure_file();
-+double get_timestamp(struct timeval timestamp);
-+
-+#define START_MEASURE(before) ({\
-+    gettimeofday(&before, NULL);\
-+})
-+#define STOP_MEASURE(before, function, M, N, K, lda, ldb, ldc)  ({\
-+    struct timeval after = {};\
-+    gettimeofday(&after, NULL);\
-+    double duration = (after.tv_sec-before.tv_sec) + 1e-6*(after.tv_usec-before.tv_usec);\
-+    int my_rank, buff=0;\
-+    double timestamp = get_timestamp(before);\
-+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);\
-+    FILE *measure_file = get_measure_file();\
-+    if(!measure_file) {fprintf(stderr, "error with measure_file\n"); exit(1);}\
-+    fprintf(measure_file, "%s, %s, %d, %d, %d, %d, %d, %d, %d, %d, %g, %g\n", function, __FILE__, __LINE__, my_rank, M, N, K, lda, ldb, ldc, duration, timestamp);\
-+})
++typedef unsigned long long timestamp_t;
++timestamp_t get_timestamp(void);
++void record_measure(char *file, int line, char *function, timestamp_t start, timestamp_t duration, int n_args, int *args);
 +
 +#define  HPL_dgemm(layout, TransA, TransB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc)  ({\
-+    struct timeval before = {};\
-+    START_MEASURE(before);\
++    timestamp_t start = get_timestamp();\
 +    cblas_dgemm(layout, TransA, TransB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc);\
-+    STOP_MEASURE(before, "dgemm", M, N, K, lda, ldb, ldc);\
++    timestamp_t duration = get_timestamp() - start;\
++    record_measure(__FILE__, __LINE__, "dgemm", start, duration, 3, (int []){M, N, K});\
 +})
 +
 +#define HPL_dtrsm(layout, Side, Uplo, TransA, Diag, M, N, alpha, A, lda, B, ldb) ({\
-+    struct timeval before = {};\
-+    START_MEASURE(before);\
++    timestamp_t start = get_timestamp();\
 +    cblas_dtrsm(layout, Side, Uplo, TransA, Diag, M, N, alpha, A, lda, B, ldb);\
-+    STOP_MEASURE(before, "dtrsm", M, N, -1, lda, ldb, -1);\
++    timestamp_t duration = get_timestamp() - start;\
++    record_measure(__FILE__, __LINE__, "dtrsm", start, duration, 2, (int []){M, N});\
++})
++
++#define HPL_dswap(N, X, incX, Y, incY) ({\
++    timestamp_t start = get_timestamp();\
++    cblas_dswap(N, X, incX, Y, incY);\
++    timestamp_t duration = get_timestamp() - start;\
++    record_measure(__FILE__, __LINE__, "dswap", start, duration, 1, (int []){N});\
++})
++#define HPL_dcopy(N, X, incX, Y, incY) ({\
++    timestamp_t start = get_timestamp();\
++    cblas_dcopy(N, X, incX, Y, incY);\
++    timestamp_t duration = get_timestamp() - start;\
++    record_measure(__FILE__, __LINE__, "dcopy", start, duration, 1, (int []){N});\
++})
++#define HPL_daxpy(N, alpha, X, incX, Y, incY) ({\
++    timestamp_t start = get_timestamp();\
++    cblas_daxpy(N, alpha, X, incX, Y, incY);\
++    timestamp_t duration = get_timestamp() - start;\
++    record_measure(__FILE__, __LINE__, "daxpy", start, duration, 1, (int []){N});\
++})
++#define HPL_dscal(N, alpha, X, incX) ({\
++    timestamp_t start = get_timestamp();\
++    cblas_dscal(N, alpha, X, incX);\
++    timestamp_t duration = get_timestamp() - start;\
++    record_measure(__FILE__, __LINE__, "dscal", start, duration, 1, (int []){N});\
++})
++#define HPL_idamax(N, X, incX) ({\
++    timestamp_t start = get_timestamp();\
++    int result = cblas_idamax(N, X, incX);\
++    timestamp_t duration = get_timestamp() - start;\
++    record_measure(__FILE__, __LINE__, "idamax", start, duration, 1, (int []){N});\
++    result;\
++})
++#define HPL_dgemv(layout, TransA, M, N, alpha, A, lda, X, incX, beta, Y, incY) ({\
++    timestamp_t start = get_timestamp();\
++    cblas_dgemv(layout, TransA, M, N, alpha, A, lda, X, incX, beta, Y, incY);\
++    timestamp_t duration = get_timestamp() - start;\
++    record_measure(__FILE__, __LINE__, "dgemv", start, duration, 2, (int []){M, N});\
++})
++#define HPL_dtrsv(layout, Uplo, TransA, Diag, N, A, lda, X, incX) ({\
++    timestamp_t start = get_timestamp();\
++    cblas_dtrsv(layout, Uplo, TransA, Diag, N, A, lda, X, incX);\
++    timestamp_t duration = get_timestamp() - start;\
++    record_measure(__FILE__, __LINE__, "dtrsv", start, duration, 1, (int []){N});\
++})
++#define HPL_dger(layout, M, N, alpha, X, incX, Y, incY, A, ldA) ({\
++    timestamp_t start = get_timestamp();\
++    cblas_dger(layout, M, N, alpha, X, incX, Y, incY, A, ldA);\
++    timestamp_t duration = get_timestamp() - start;\
++    record_measure(__FILE__, __LINE__, "dger", start, duration, 2, (int []){M, N});\
 +})
 +
  #ifdef HPL_CALL_FBLAS
  /*
   * ---------------------------------------------------------------------
 diff --git a/src/blas/HPL_dgemm.c b/src/blas/HPL_dgemm.c
-index f27888a..4e3f7e9 100644
+index f27888a..8c455ae 100644
 --- a/src/blas/HPL_dgemm.c
 +++ b/src/blas/HPL_dgemm.c
-@@ -47,8 +47,35 @@
- /*
+@@ -48,6 +48,74 @@
   * Include files
   */
-+#include <sys/time.h>
  #include "hpl.h"
-
++#include "unistd.h"
++#if _POSIX_TIMERS
++#include <time.h>
++#define HAVE_CLOCKGETTIME 1
++#else
++#include <sys/time.h>
++#define HAVE_GETTIMEOFDAY 1
++#endif
++
 +FILE *get_measure_file() {
 +    static FILE *measure_file=NULL;
 +    if(!measure_file) {
@@ -234,23 +287,56 @@ index f27888a..4e3f7e9 100644
 +            fprintf(stderr, "Error opening file %s\n", filename);
 +            exit(1);
 +        }
-+        fprintf(measure_file, "function, file, line, rank, m, n, k, lead_A, lead_B, lead_C, duration, timestamp\n");
 +    }
 +    return measure_file;
 +}
 +
-+double get_timestamp(struct timeval timestamp) {
-+    static struct timeval start = {.tv_sec=-1, .tv_usec=-1};
-+    if(start.tv_sec < 0) {
-+        gettimeofday(&start, NULL);
-+    }
-+    double t = (timestamp.tv_sec-start.tv_sec) + 1e-6*(timestamp.tv_usec-start.tv_usec);
-+    return t;
++
++#ifdef HAVE_CLOCKGETTIME
++#define PRECISION 1000000000.0
++#elif HAVE_GETTIMEOFDAY
++#define PRECISION 1000000.0
++#else
++#define PRECISION 1
++#endif
++
++timestamp_t get_time(){
++#ifdef HAVE_CLOCKGETTIME
++    struct timespec tp;
++    clock_gettime (CLOCK_REALTIME, &tp);
++    return (tp.tv_sec * 1000000000 + tp.tv_nsec);
++#elif HAVE_GETTIMEOFDAY
++    struct timeval tv;
++    gettimeofday (&tv, NULL);
++    return (tv.tv_sec * 1000000 + tv.tv_usec)*1000;
++#endif
 +}
 +
++timestamp_t get_timestamp(void) {
++    static timestamp_t start = 0;
++    if(start == 0) {
++        start = get_time();
++        return 0;
++    }
++    return get_time() - start;
++}
++
++void record_measure(char *file, int line, char *function, timestamp_t start, timestamp_t duration, int n_args, int *args) {
++    static int my_rank = -1;
++    if(my_rank < 0) {
++        MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
++    }
++    FILE *measure_file = get_measure_file();
++    if(!measure_file) {fprintf(stderr, "error with measure_file\n"); exit(1);}
++    fprintf(measure_file, "%s, %d, %s, %d, %e, %e", file, line, function, my_rank, start/PRECISION, duration/PRECISION);
++    for(int i = 0; i < n_args; i++) {
++        fprintf(measure_file, ", %d", args[i]);
++    }
++    fprintf(measure_file, "\n");
++}
+
  #ifndef HPL_dgemm
 
- #ifdef HPL_CALL_VSIPL
 diff --git a/testing/ptest/HPL_pddriver.c b/testing/ptest/HPL_pddriver.c
 index dd2b3fd..07f83c3 100644
 --- a/testing/ptest/HPL_pddriver.c
@@ -272,7 +358,7 @@ index dd2b3fd..07f83c3 100644
     exit( 0 );
 
 diff --git a/testing/ptest/HPL_pdtest.c b/testing/ptest/HPL_pdtest.c
-index 9039693..33b11ac 100644
+index 9039693..395cbe9 100644
 --- a/testing/ptest/HPL_pdtest.c
 +++ b/testing/ptest/HPL_pdtest.c
 @@ -48,6 +48,7 @@
@@ -283,12 +369,11 @@ index 9039693..33b11ac 100644
 
  #ifdef STDC_HEADERS
  void HPL_pdtest
-@@ -136,6 +137,8 @@ void HPL_pdtest
+@@ -136,6 +137,7 @@ void HPL_pdtest
  /* ..
   * .. Executable Statements ..
   */
-+   struct timeval tmp_time = {};
-+   get_timestamp(tmp_time); // initialize the timer...
++   get_timestamp(); // initialize the timer...
     (void) HPL_grid_info( GRID, &nprow, &npcol, &myrow, &mycol );
 
     mat.n  = N; mat.nb = NB; mat.info = 0;
