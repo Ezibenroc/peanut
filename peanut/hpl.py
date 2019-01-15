@@ -55,13 +55,6 @@ class HPL(AbstractHPL):
         start = time.time()
         assert len(self.expfile) == 1
         expfile = self.expfile[0]
-        script = '''
-            head -1 $1
-            for filename in $*; do
-               tail -n +2  $filename
-            done
-        '''
-        self.director.write_files(script, self.hpl_dir+'/bin/Debian/concatenate.sh')
         for i, exp in enumerate(expfile):
             proc_p = exp['proc_p']
             proc_q = exp['proc_q']
@@ -108,7 +101,7 @@ class HPL(AbstractHPL):
                 blas_trace = os.path.join(self.director.working_dir, 'trace_blas_%d.csv' % i)
                 self.director.run('pj_dump -u %s | grep -v MPI_Iprobe > %s' % (paje_file, mpi_trace))
                 self.nodes.run('rm -f rastro-*rst', directory=self.hpl_dir+'/bin/Debian')
-                self.director.run('bash concatenate.sh blas*trace > %s' % blas_trace, directory=self.hpl_dir+'/bin/Debian')
+                self.director.run('cat blas*trace > %s' % blas_trace, directory=self.hpl_dir+'/bin/Debian')
                 self.nodes.run('rm -f blas*trace', directory=self.hpl_dir+'/bin/Debian')
                 self.add_local_to_archive(mpi_trace)
                 self.add_local_to_archive(blas_trace)
