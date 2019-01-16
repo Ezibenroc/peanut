@@ -157,7 +157,7 @@ index 47feb15..5b2e4e5 100644
     def patch(self):
         return r'''
 diff --git a/include/hpl_blas.h b/include/hpl_blas.h
-index 41e5afd..f95d8bb 100644
+index 41e5afd..f52e826 100644
 --- a/include/hpl_blas.h
 +++ b/include/hpl_blas.h
 @@ -159,21 +159,78 @@ STDC_ARGS(
@@ -182,7 +182,7 @@ index 41e5afd..f95d8bb 100644
 +FILE *get_measure_file();
 +typedef unsigned long long timestamp_t;
 +timestamp_t get_timestamp(void);
-+void record_measure(char *file, int line, char *function, timestamp_t start, timestamp_t duration, int n_args, int *args);
++void record_measure(const char *file, int line, const char *function, timestamp_t start, timestamp_t duration, int n_args, int *args);
 +
 +#define  HPL_dgemm(layout, TransA, TransB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc)  ({\
 +    timestamp_t start = get_timestamp();\
@@ -251,8 +251,46 @@ index 41e5afd..f95d8bb 100644
  #ifdef HPL_CALL_FBLAS
  /*
   * ---------------------------------------------------------------------
+diff --git a/src/auxil/HPL_dlacpy.c b/src/auxil/HPL_dlacpy.c
+index 89ae13b..ea15e65 100644
+--- a/src/auxil/HPL_dlacpy.c
++++ b/src/auxil/HPL_dlacpy.c
+@@ -127,6 +127,7 @@ void HPL_dlacpy
+ /*
+  * .. Local Variables ..
+  */
++    timestamp_t start = get_timestamp();
+ #ifdef HPL_LACPY_USE_COPY
+    register int               j;
+ #else
+@@ -340,4 +341,6 @@ void HPL_dlacpy
+ /*
+  * End of HPL_dlacpy
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+ }
+diff --git a/src/auxil/HPL_dlatcpy.c b/src/auxil/HPL_dlatcpy.c
+index 7643676..eb84bea 100644
+--- a/src/auxil/HPL_dlatcpy.c
++++ b/src/auxil/HPL_dlatcpy.c
+@@ -127,6 +127,7 @@ void HPL_dlatcpy
+ /*
+  * .. Local Variables ..
+  */
++    timestamp_t start = get_timestamp();
+ #ifdef HPL_LATCPY_USE_COPY
+    register int               j;
+ #else
+@@ -395,4 +396,6 @@ void HPL_dlatcpy
+ /*
+  * End of HPL_dlatcpy
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+ }
 diff --git a/src/blas/HPL_dgemm.c b/src/blas/HPL_dgemm.c
-index f27888a..8c455ae 100644
+index f27888a..7c6b73f 100644
 --- a/src/blas/HPL_dgemm.c
 +++ b/src/blas/HPL_dgemm.c
 @@ -48,6 +48,74 @@
@@ -314,7 +352,7 @@ index f27888a..8c455ae 100644
 +    return get_time() - start;
 +}
 +
-+void record_measure(char *file, int line, char *function, timestamp_t start, timestamp_t duration, int n_args, int *args) {
++void record_measure(const char *file, int line, const char *function, timestamp_t start, timestamp_t duration, int n_args, int *args) {
 +    static int my_rank = -1;
 +    if(my_rank < 0) {
 +        MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
@@ -330,6 +368,253 @@ index f27888a..8c455ae 100644
 
  #ifndef HPL_dgemm
 
+diff --git a/src/pauxil/HPL_dlaswp00N.c b/src/pauxil/HPL_dlaswp00N.c
+index 60ae8b1..72952e3 100644
+--- a/src/pauxil/HPL_dlaswp00N.c
++++ b/src/pauxil/HPL_dlaswp00N.c
+@@ -121,6 +121,7 @@ void HPL_dlaswp00N
+ /* ..
+  * .. Executable Statements ..
+  */
++    timestamp_t start = get_timestamp();
+    if( ( M <= 0 ) || ( N <= 0 ) ) return;
+
+    nr = N - ( nu = (int)( ( (unsigned int)(N) >> HPL_LASWP00N_LOG2_DEPTH )
+@@ -195,4 +196,6 @@ void HPL_dlaswp00N
+ /*
+  * End of HPL_dlaswp00N
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+ }
+diff --git a/src/pauxil/HPL_dlaswp01N.c b/src/pauxil/HPL_dlaswp01N.c
+index f467470..eab7b51 100644
+--- a/src/pauxil/HPL_dlaswp01N.c
++++ b/src/pauxil/HPL_dlaswp01N.c
+@@ -140,6 +140,7 @@ void HPL_dlaswp01N
+ /*
+  * .. Local Variables ..
+  */
++    timestamp_t start = get_timestamp();
+    double                     * a0, * a1;
+    const int                  incA = (int)( (unsigned int)(LDA) <<
+                                             HPL_LASWP01N_LOG2_DEPTH ),
+@@ -206,4 +207,6 @@ void HPL_dlaswp01N
+ /*
+  * End of HPL_dlaswp01N
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+ }
+diff --git a/src/pauxil/HPL_dlaswp01T.c b/src/pauxil/HPL_dlaswp01T.c
+index c3c9e4a..3e0b4cb 100644
+--- a/src/pauxil/HPL_dlaswp01T.c
++++ b/src/pauxil/HPL_dlaswp01T.c
+@@ -150,6 +150,7 @@ void HPL_dlaswp01T
+ /* ..
+  * .. Executable Statements ..
+  */
++    timestamp_t start = get_timestamp();
+    if( ( M <= 0 ) || ( N <= 0 ) ) return;
+
+    nr = N - ( nu = (int)( ( (unsigned int)(N) >> HPL_LASWP01T_LOG2_DEPTH ) <<
+@@ -249,4 +250,6 @@ void HPL_dlaswp01T
+ /*
+  * End of HPL_dlaswp01T
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+ }
+diff --git a/src/pauxil/HPL_dlaswp02N.c b/src/pauxil/HPL_dlaswp02N.c
+index 84a887b..fa1fa1b 100644
+--- a/src/pauxil/HPL_dlaswp02N.c
++++ b/src/pauxil/HPL_dlaswp02N.c
+@@ -137,6 +137,7 @@ void HPL_dlaswp02N
+ /*
+  * .. Local Variables ..
+  */
++    timestamp_t start = get_timestamp();
+    const double               * A0 = A, * a0;
+    double                     * w0;
+    const int                  incA = (int)( (unsigned int)(LDA) <<
+@@ -202,4 +203,6 @@ void HPL_dlaswp02N
+ /*
+  * End of HPL_dlaswp02N
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+ }
+diff --git a/src/pauxil/HPL_dlaswp03N.c b/src/pauxil/HPL_dlaswp03N.c
+index 711c211..e7ae6b5 100644
+--- a/src/pauxil/HPL_dlaswp03N.c
++++ b/src/pauxil/HPL_dlaswp03N.c
+@@ -127,6 +127,7 @@ void HPL_dlaswp03N
+ /*
+  * .. Local Variables ..
+  */
++    timestamp_t start = get_timestamp();
+    const double               * w = W, * w0;
+    double                     * u0;
+    const int                  incU = (int)( (unsigned int)(LDU) <<
+@@ -191,4 +192,6 @@ void HPL_dlaswp03N
+ /*
+  * End of HPL_dlaswp03N
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+ }
+diff --git a/src/pauxil/HPL_dlaswp03T.c b/src/pauxil/HPL_dlaswp03T.c
+index d6629de..b6b9922 100644
+--- a/src/pauxil/HPL_dlaswp03T.c
++++ b/src/pauxil/HPL_dlaswp03T.c
+@@ -127,6 +127,7 @@ void HPL_dlaswp03T
+ /*
+  * .. Local Variables ..
+  */
++    timestamp_t start = get_timestamp();
+    const double               * w = W, * w0;
+    double                     * u0;
+    const int                  incU = ( 1 << HPL_LASWP03T_LOG2_DEPTH );
+@@ -183,4 +184,6 @@ void HPL_dlaswp03T
+ /*
+  * End of HPL_dlaswp03T
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+ }
+diff --git a/src/pauxil/HPL_dlaswp04N.c b/src/pauxil/HPL_dlaswp04N.c
+index 822a5ac..9ba343b 100644
+--- a/src/pauxil/HPL_dlaswp04N.c
++++ b/src/pauxil/HPL_dlaswp04N.c
+@@ -158,6 +158,7 @@ void HPL_dlaswp04N
+ /*
+  * .. Local Variables ..
+  */
++    timestamp_t start = get_timestamp();
+    const double               * w = W, * w0;
+    double                     * a0, * u0;
+    const int                  incA = (int)( (unsigned int)(LDA) <<
+@@ -282,4 +283,6 @@ void HPL_dlaswp04N
+ /*
+  * End of HPL_dlaswp04N
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 3, (int []){M0, M1, N});
+ }
+diff --git a/src/pauxil/HPL_dlaswp04T.c b/src/pauxil/HPL_dlaswp04T.c
+index 4b62689..c907d85 100644
+--- a/src/pauxil/HPL_dlaswp04T.c
++++ b/src/pauxil/HPL_dlaswp04T.c
+@@ -159,6 +159,7 @@ void HPL_dlaswp04T
+ /*
+  * .. Local Variables ..
+  */
++    timestamp_t start = get_timestamp();
+    const double               * w = W, * w0;
+    double                     * a0, * u0;
+    const int                  incA = (int)( (unsigned int)(LDA) <<
+@@ -267,4 +268,6 @@ void HPL_dlaswp04T
+ /*
+  * End of HPL_dlaswp04T
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 3, (int []){M0, M1, N});
+ }
+diff --git a/src/pauxil/HPL_dlaswp05N.c b/src/pauxil/HPL_dlaswp05N.c
+index 928e7f7..a172ded 100644
+--- a/src/pauxil/HPL_dlaswp05N.c
++++ b/src/pauxil/HPL_dlaswp05N.c
+@@ -129,6 +129,7 @@ void HPL_dlaswp05N
+ /*
+  * .. Local Variables ..
+  */
++    timestamp_t start = get_timestamp();
+    const double               * U0 = U, * u0;
+    double                     * a0;
+    const int                  incA = (int)( (unsigned int)(LDA) <<
+@@ -192,4 +193,6 @@ void HPL_dlaswp05N
+ /*
+  * End of HPL_dlaswp05N
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+ }
+diff --git a/src/pauxil/HPL_dlaswp05T.c b/src/pauxil/HPL_dlaswp05T.c
+index 50f337a..c83d981 100644
+--- a/src/pauxil/HPL_dlaswp05T.c
++++ b/src/pauxil/HPL_dlaswp05T.c
+@@ -129,6 +129,7 @@ void HPL_dlaswp05T
+ /*
+  * .. Local Variables ..
+  */
++    timestamp_t start = get_timestamp();
+    const double               * U0 = U, * u0;
+    double                     * a0;
+    const int                  incA = (int)( (unsigned int)(LDA) <<
+@@ -193,4 +194,6 @@ void HPL_dlaswp05T
+ /*
+  * End of HPL_dlaswp05T
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+ }
+diff --git a/src/pauxil/HPL_dlaswp06N.c b/src/pauxil/HPL_dlaswp06N.c
+index 8954577..472b86a 100644
+--- a/src/pauxil/HPL_dlaswp06N.c
++++ b/src/pauxil/HPL_dlaswp06N.c
+@@ -124,6 +124,7 @@ void HPL_dlaswp06N
+ /*
+  * .. Local Variables ..
+  */
++    timestamp_t start = get_timestamp();
+    double                     r;
+    double                     * U0 = U, * a0, * u0;
+    const int                  incA = (int)( (unsigned int)(LDA) <<
+@@ -203,4 +204,6 @@ void HPL_dlaswp06N
+ /*
+  * End of HPL_dlaswp06N
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+ }
+diff --git a/src/pauxil/HPL_dlaswp06T.c b/src/pauxil/HPL_dlaswp06T.c
+index 481b53b..36a4908 100644
+--- a/src/pauxil/HPL_dlaswp06T.c
++++ b/src/pauxil/HPL_dlaswp06T.c
+@@ -124,6 +124,7 @@ void HPL_dlaswp06T
+ /*
+  * .. Local Variables ..
+  */
++    timestamp_t start = get_timestamp();
+    double                     r;
+    double                     * U0 = U, * a0, * u0;
+    const int                  incA = (int)( (unsigned int)(LDA) <<
+@@ -204,4 +205,6 @@ void HPL_dlaswp06T
+ /*
+  * End of HPL_dlaswp06T
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+ }
+diff --git a/src/pauxil/HPL_dlaswp10N.c b/src/pauxil/HPL_dlaswp10N.c
+index 8b33de5..a6238f7 100644
+--- a/src/pauxil/HPL_dlaswp10N.c
++++ b/src/pauxil/HPL_dlaswp10N.c
+@@ -111,6 +111,7 @@ void HPL_dlaswp10N
+ /*
+  * .. Local Variables ..
+  */
++    timestamp_t start = get_timestamp();
+    double                     r;
+    double                     * a0, * a1;
+    const int                  incA = ( 1 << HPL_LASWP10N_LOG2_DEPTH );
+@@ -183,4 +184,6 @@ void HPL_dlaswp10N
+ /*
+  * End of HPL_dlaswp10N
+  */
++    timestamp_t duration = get_timestamp() - start;
++    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+ }
 diff --git a/testing/ptest/HPL_pddriver.c b/testing/ptest/HPL_pddriver.c
 index dd2b3fd..07f83c3 100644
 --- a/testing/ptest/HPL_pddriver.c
