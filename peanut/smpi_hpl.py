@@ -85,7 +85,7 @@ class SMPIHPL(AbstractHPL):
             patches.append(self.hpl_early_termination_patch)
         if self.insert_bcast:
             patches.append(self.hpl_bcast_patch)
-        patches.append(self.blas_randomization_patch)
+        patches.append(self.normal_durations_patch)
         patch = '\n'.join(patches) if patches else None
         self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch)
         self.nodes.run('make startup arch=SMPI', directory=self.hpl_dir)
@@ -399,4 +399,169 @@ index 741b225..3ced2e4 100644
      }\
      double expected_time;\
      if((Side) == HplLeft) {\
+'''
+
+    normal_durations_patch = r'''
+diff --git a/include/hpl_blas.h b/include/hpl_blas.h
+index 19a665a..5de474a 100644
+--- a/include/hpl_blas.h
++++ b/include/hpl_blas.h
+@@ -163,14 +163,15 @@ STDC_ARGS(
+
+ #if SMPI_OPTIMIZATION_LEVEL >= 2
+ #define    HPL_dswap(...)      {}
+-#define    HPL_dgemv(...)      {}
+-#define    HPL_daxpy(...)      {}
+-#define    HPL_dscal(...)      {}
+-#define    HPL_idamax(N, X, incX) (rand()%N)
+-#define    HPL_dtrsv(...)      {}
++#define    HPL_dgemv(layout, TransA, M, N, alpha, A, lda, X, incX, beta, Y, incY) ({smpi_execute_normal(1.389908e+09, 6.011379e+07, ((double)M)*N);})
++#define    HPL_daxpy(...)      ({smpi_execute_normal(6.907377e+08, 2.553646e+08, 4.920070e+02);})
++#define    HPL_dscal(...)      ({smpi_execute_normal(2.779018e+09, 4.668436e+08, 2.311699e+04);})
++#define    HPL_idamax(N, X, incX) ({smpi_execute_normal(1.796604e+09, 5.786329e+08, 2.311625e+04); rand()%N;})
++#define    HPL_dtrsv(...)      ({smpi_execute_normal(6.561277e+08, 7.395658e+07, 1.637382e+04);})
+ #define    HPL_dger(...)       {}
+ #pragma message "[SMPI] Using no-op for the cheapest BLAS functions."
+ #else
++#define    HPL_dcopy           cblas_dcopy
+ #define    HPL_dswap           cblas_dswap
+ #define    HPL_dgemv           cblas_dgemv
+ #define    HPL_daxpy           cblas_daxpy
+@@ -188,6 +189,7 @@ STDC_ARGS(
+
+ FILE *get_measure_file();
+ double get_timestamp(struct timeval timestamp);
++void smpi_execute_normal(double mu, double sigma, double size);
+
+ #ifdef SMPI_MEASURE
+ #pragma message "[SMPI] Tracing the calls to BLAS functions."
+@@ -234,8 +236,7 @@ static double dgemm_intercept = -1;
+     expected_time = dgemm_coefficient*((double)(M))*((double)(N))*((double)(K)) + dgemm_intercept;\
+     struct timeval before = {};\
+     START_MEASURE(before);\
+-    if(expected_time > 0)\
+-        smpi_execute_benched(expected_time);\
++    smpi_execute_normal(1.500643e+10, 6.046520e+08, ((double)M)*((double)N)*K);\
+     STOP_MEASURE(before, "dgemm", M, N, K, lda, ldb, ldc);\
+ })
+ #else
+@@ -266,8 +267,7 @@ static double dtrsm_intercept = -1;
+     }\
+     struct timeval before = {};\
+     START_MEASURE(before);\
+-    if(expected_time > 0)\
+-        smpi_execute_benched(expected_time);\
++    smpi_execute_normal(1.831074e+10, 8.947492e+08, ((double)M)*N);\
+     STOP_MEASURE(before, "dtrsm", M, N, -1, lda, ldb, -1);\
+ })
+ #else
+diff --git a/src/auxil/HPL_dlacpy.c b/src/auxil/HPL_dlacpy.c
+index 8c1396a..a2cda2c 100644
+--- a/src/auxil/HPL_dlacpy.c
++++ b/src/auxil/HPL_dlacpy.c
+@@ -128,6 +128,7 @@ void HPL_dlacpy
+  * .. Local Variables ..
+  */
+ #if SMPI_OPTIMIZATION_LEVEL >= 2
++    smpi_execute_normal(3.739279e+08, 2.089563e+08, 2.929817e+06);
+     return;
+ #endif
+ #ifdef HPL_LACPY_USE_COPY
+diff --git a/src/auxil/HPL_dlatcpy.c b/src/auxil/HPL_dlatcpy.c
+index 417a1d5..5d82cd1 100644
+--- a/src/auxil/HPL_dlatcpy.c
++++ b/src/auxil/HPL_dlatcpy.c
+@@ -128,6 +128,7 @@ void HPL_dlatcpy
+  * .. Local Variables ..
+  */
+ #if SMPI_OPTIMIZATION_LEVEL >= 2
++    smpi_execute_normal(2.025287e+08, 2.064743e+07, M*N);
+     return;
+ #endif
+ #ifdef HPL_LATCPY_USE_COPY
+diff --git a/src/blas/HPL_dgemm.c b/src/blas/HPL_dgemm.c
+index 7c017f3..374504b 100644
+--- a/src/blas/HPL_dgemm.c
++++ b/src/blas/HPL_dgemm.c
+@@ -48,6 +48,7 @@
+  * Include files
+  */
+ #include <sys/time.h>
++#include <math.h>
+ #include "hpl.h"
+
+ FILE *get_measure_file() {
+@@ -76,6 +77,24 @@ double get_timestamp(struct timeval timestamp) {
+     return t;
+ }
+
++double random_normal(double mu, double sigma) {
++    // From https://rosettacode.org/wiki/Statistics/Normal_distribution#C
++    double x, y, rsq, f;
++    do {
++        x = 2.0 * rand() / (double)RAND_MAX - 1.0;
++        y = 2.0 * rand() / (double)RAND_MAX - 1.0;
++        rsq = x * x + y * y;
++    }while( rsq >= 1. || rsq == 0. );
++    f = sqrt( -2.0 * log(rsq) / rsq );
++    return (x * f)*sigma + mu; // y*f would also be good
++}
++
++void smpi_execute_normal(double mu, double sigma, double size) {
++    double coefficient = random_normal(mu, sigma);
++    if(coefficient > 0) {
++        smpi_execute_benched(size / coefficient);
++    }
++}
+
+ #ifndef HPL_dgemm
+
+diff --git a/src/pauxil/HPL_dlaswp01T.c b/src/pauxil/HPL_dlaswp01T.c
+index afb24b6..dce614e 100644
+--- a/src/pauxil/HPL_dlaswp01T.c
++++ b/src/pauxil/HPL_dlaswp01T.c
+@@ -142,6 +142,7 @@ void HPL_dlaswp01T
+  * .. Local Variables ..
+  */
+ #if SMPI_OPTIMIZATION_LEVEL >= 2
++    smpi_execute_normal(1.326539e+08, 2.558332e+07, 7.942974e+05);
+     return;
+ #endif
+    double                     * a0, * a1;
+diff --git a/src/pauxil/HPL_dlaswp02N.c b/src/pauxil/HPL_dlaswp02N.c
+index a49d28b..3a7305a 100644
+--- a/src/pauxil/HPL_dlaswp02N.c
++++ b/src/pauxil/HPL_dlaswp02N.c
+@@ -138,6 +138,7 @@ void HPL_dlaswp02N
+  * .. Local Variables ..
+  */
+ #if SMPI_OPTIMIZATION_LEVEL >= 2
++    smpi_execute_normal(4.411560e+07, 8.231826e+06, ((double)M)*N);
+     return;
+ #endif
+    const double               * A0 = A, * a0;
+diff --git a/src/pauxil/HPL_dlaswp03T.c b/src/pauxil/HPL_dlaswp03T.c
+index efffab5..0d425b3 100644
+--- a/src/pauxil/HPL_dlaswp03T.c
++++ b/src/pauxil/HPL_dlaswp03T.c
+@@ -128,6 +128,7 @@ void HPL_dlaswp03T
+  * .. Local Variables ..
+  */
+ #if SMPI_OPTIMIZATION_LEVEL >= 2
++    smpi_execute_normal(2.740416e+08, 3.444054e+07, ((double)M)*N);
+     return;
+ #endif
+    const double               * w = W, * w0;
+diff --git a/src/pauxil/HPL_dlaswp04T.c b/src/pauxil/HPL_dlaswp04T.c
+index f279771..f935e63 100644
+--- a/src/pauxil/HPL_dlaswp04T.c
++++ b/src/pauxil/HPL_dlaswp04T.c
+@@ -160,6 +160,7 @@ void HPL_dlaswp04T
+  * .. Local Variables ..
+  */
+ #if SMPI_OPTIMIZATION_LEVEL >= 2
++    smpi_execute_normal(7.956960e+07, 2.261901e+07, 2.679820e+05);
+     return;
+ #endif
+    const double               * w = W, * w0;
 '''
