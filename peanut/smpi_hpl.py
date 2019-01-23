@@ -85,7 +85,6 @@ class SMPIHPL(AbstractHPL):
             patches.append(self.hpl_early_termination_patch)
         if self.insert_bcast:
             patches.append(self.hpl_bcast_patch)
-        patches.append(self.normal_durations_patch)
         patch = '\n'.join(patches) if patches else None
         self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch)
         self.nodes.run('make startup arch=SMPI', directory=self.hpl_dir)
