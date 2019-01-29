@@ -108,13 +108,6 @@ class SMPIHPL(AbstractHPL):
         self.nodes.write_files('1', '/proc/sys/vm/nr_hugepages')
 
     def run_exp(self):
-        script = '''
-            head -1 $1
-            for filename in $*; do
-               tail -n +2  $filename
-            done
-        '''
-        self.director.write_files(script, self.hpl_dir+'/bin/SMPI/concatenate.sh')
         results = []
         assert len(self.expfile) == 2
         platform = [f for f in self.expfile if f.extension == 'xml']
@@ -162,7 +155,7 @@ class SMPIHPL(AbstractHPL):
                 mpi_trace = 'trace_mpi_%d.csv' % i
                 blas_trace = os.path.join(self.director.working_dir, 'trace_blas_%d.csv' % i)
                 self.director.run('pj_dump -u %s | grep -v MPI_Iprobe > %s' % (paje_file, mpi_trace))
-                self.director.run('bash concatenate.sh blas*trace > %s' % blas_trace, directory=self.hpl_dir+'/bin/SMPI')
+                self.director.run('cat blas*trace > %s' % blas_trace, directory=self.hpl_dir+'/bin/SMPI')
                 self.nodes.run('rm -f blas*trace', directory=self.hpl_dir+'/bin/SMPI')
                 self.add_local_to_archive(mpi_trace)
                 self.add_local_to_archive(blas_trace)
