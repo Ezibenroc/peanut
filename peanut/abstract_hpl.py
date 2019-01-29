@@ -20,9 +20,9 @@ class AbstractHPL(Job):
                     'thread_per_process': range(1, 129),
                     }
     expfile_types = {fact: int for fact in expfile_sets}
-    trace_execution = False
-    terminate_early = False
-    insert_bcast = False
+    trace_execution = True
+    terminate_early = True
+    insert_bcast = True
 
     @classmethod
     def check_exp(cls, exp):
@@ -206,13 +206,17 @@ diff --git a/testing/ptest/HPL_pdtest.c b/testing/ptest/HPL_pdtest.c
 index 33b11ac..dea0d93 100644
 --- a/testing/ptest/HPL_pdtest.c
 +++ b/testing/ptest/HPL_pdtest.c
-@@ -197,7 +197,10 @@ void HPL_pdtest
+@@ -197,7 +197,14 @@ void HPL_pdtest
     HPL_ptimer_boot(); (void) HPL_barrier( GRID->all_comm );
     time( &current_time_start );
     HPL_ptimer( 0 );
 +   int n = 12;
 +   MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
++   timestamp_t start = get_timestamp();
++   record_measure(__FILE__, __LINE__, "smpi_marker", start, 0, 0, NULL);
     HPL_pdgesv( GRID, ALGO, &mat );
++   timestamp_t end = get_timestamp();
++   record_measure(__FILE__, __LINE__, "smpi_marker", end, 0, 0, NULL);
 +   MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
     HPL_ptimer( 0 );
     time( &current_time_end );
