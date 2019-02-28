@@ -77,7 +77,7 @@ class SMPIHPL(AbstractHPL):
         super().setup()
         self.apt_install('python3', 'libboost-dev', 'pajeng')
         self.git_clone('https://framagit.org/simgrid/simgrid.git', 'simgrid',
-                       checkout='a6f883f0e28e60a805227007ec71cac80bced118')
+                       checkout='a6f883f0e28e60a805227007ec71cac80bced118', patch=self.simgrid_stochastic_patch)
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
         patches = [self.makefile_patch]
@@ -557,4 +557,179 @@ index f279771..f935e63 100644
      return;
  #endif
     const double               * w = W, * w0;
+'''
+
+    simgrid_stochastic_patch = r'''
+diff --git a/src/smpi/internals/smpi_host.cpp b/src/smpi/internals/smpi_host.cpp
+index 95c7284f6..81930fd57 100644
+--- a/src/smpi/internals/smpi_host.cpp
++++ b/src/smpi/internals/smpi_host.cpp
+@@ -11,9 +11,61 @@
+ #include <string>
+ #include <vector>
+ #include <xbt/log.h>
++#include <math.h>
+
+ XBT_LOG_NEW_DEFAULT_SUBCATEGORY(smpi_host, smpi, "Logging specific to SMPI (host)");
+
++double random_normal(void) {
++    // From https://rosettacode.org/wiki/Statistics/Normal_distribution#C
++    double x, y, rsq, f;
++    do {
++        x = 2.0 * rand() / (double)RAND_MAX - 1.0;
++        y = 2.0 * rand() / (double)RAND_MAX - 1.0;
++        rsq = x * x + y * y;
++    }while( rsq >= 1. || rsq == 0. );
++    f = sqrt( -2.0 * log(rsq) / rsq );
++    return (x * f); // y*f would also be good
++}
++
++double random_halfnormal(void) {
++    double x = random_normal();
++    if(x < 0) {
++        x = -x;
++    }
++    return x;
++}
++
++double random_halfnormal_shifted(double exp, double std) {
++    // Here, exp and std are the desired expectation and standard deviation.
++    // We compute the corresponding mu and sigma parameters for the normal distribution.
++    double mu, sigma;
++    sigma = std/sqrt(1-2/M_PI); //sigma = self.sigma/sqrt(1-2/numpy.pi)
++    mu = exp - sigma*sqrt(2/M_PI); //mu = self.mu - sigma*sqrt(2/numpy.pi)
++    double x = random_halfnormal();
++    return x*sigma + mu;
++}
++
++double random_mixture(int nb_modes, double mixtures[][3]) {
++    // Selecting randomly a mode according to the desired probabilities
++    int i = 0;
++    do {
++        double proba_sum = mixtures[0][2];
++        assert(proba_sum >= 0);
++        double x = rand() / (double)RAND_MAX;  // random value in [0, 1]
++        i=0;
++        while(i < nb_modes && x > proba_sum) {
++            i++;
++            proba_sum += mixtures[i][2];
++            assert(mixtures[i][2] >= 0);
++            assert(proba_sum <= 1);
++        }
++    } while(i >= nb_modes); // the sum may be slightly lower than 1, in this case we redraw
++    // Drawing a random number on this mode
++    double mu = mixtures[i][0];
++    double sigma = mixtures[i][1];
++    return random_halfnormal_shifted(mu, sigma);
++}
++
+ namespace simgrid {
+ namespace smpi {
+
+@@ -21,6 +73,17 @@ simgrid::xbt::Extension<simgrid::s4u::Host, Host> Host::EXTENSION_ID;
+
+ double Host::orecv(size_t size)
+ {
++  if(size < 8133) {
++    double mixtures[4][3] = {
++        { 9.6819e-7, 8.2300e-8, 7.1131e-1 },
++        { 2.2971e-6, 1.7681e-7, 2.8443e-1 },
++        { 6.2560e-6, 1.0157e-6, 3.5385e-3 },
++        { 1.5789e-5, 1.3538e-6, 7.1978e-4 }
++    };
++    double intercept = random_mixture(4, mixtures);
++    double coefficient = 8.4439e-11;
++    return coefficient*size + intercept;
++  }
+   double current = orecv_parsed_values.empty() ? 0.0 : orecv_parsed_values.front().values[0] +
+                                                            orecv_parsed_values.front().values[1] * size;
+
+@@ -44,6 +107,16 @@ double Host::orecv(size_t size)
+
+ double Host::osend(size_t size)
+ {
++  if(size < 8133) {
++    double mixtures[3][3] = {
++        { 1.8346e-7, 6.8484e-8, 8.0181e-1 },
++        { 7.3421e-7, 1.9212e-7, 1.9782e-1 },
++        { 1.1585e-5, 4.4453e-6, 3.6813e-4 }
++    };
++    double intercept = random_mixture(3, mixtures);
++    double coefficient = 9.6307e-11;
++    return coefficient*size + intercept;
++  }
+   double current =
+       osend_parsed_values.empty() ? 0.0 : osend_parsed_values[0].values[0] + osend_parsed_values[0].values[1] * size;
+   // Iterate over all the sections that were specified and find the right
+@@ -67,6 +140,17 @@ double Host::osend(size_t size)
+
+ double Host::oisend(size_t size)
+ {
++  if(size < 8133) {
++    double mixtures[4][3] = {
++        { 2.1896e-7, 6.2602e-8, 7.7519e-1 - 6.9e-6 }, // due to a "bad" rounding, the sum exceeds 1...
++        { 7.3872e-7, 1.6541e-7, 2.1041e-1 },
++        { 2.1007e-5, 2.4279e-6, 1.1676e-2 },
++        { 4.4927e-5, 4.0746e-6, 2.7308e-3 }
++    };
++    double intercept = random_mixture(4, mixtures);
++    double coefficient = 7.0506e-11;
++    return coefficient*size + intercept;
++  }
+   double current =
+       oisend_parsed_values.empty() ? 0.0 : oisend_parsed_values[0].values[0] + oisend_parsed_values[0].values[1] * size;
+
+diff --git a/src/surf/network_cm02.cpp b/src/surf/network_cm02.cpp
+index a85a3d5ed..22a2996ed 100644
+--- a/src/surf/network_cm02.cpp
++++ b/src/surf/network_cm02.cpp
+@@ -12,6 +12,8 @@
+ #include "src/surf/surf_interface.hpp"
+ #include "surf/surf.hpp"
+
++double random_mixture(int nb_modes, double mixtures[][3]);
++
+ XBT_LOG_EXTERNAL_DEFAULT_CATEGORY(surf_network);
+
+ double sg_latency_factor = 1.0; /* default value; can be set by model or from command line */
+@@ -257,6 +259,39 @@ Action* NetworkCm02Model::communicate(s4u::Host* src, s4u::Host* dst, double siz
+   int constraints_per_variable = route.size();
+   constraints_per_variable += back_route.size();
+
++  // TODO HERE!
++  if(size < 8133) {
++    // nothing here, the randomness is done in or/os/oi
++  }
++  else if(size < 15831) {
++    double mixtures[2][3] = {
++      { 2.5333e-6, 2.2377e-7, 8.0320e-1 },
++      { 4.7791e-6, 6.7538e-7, 1.9680e-1 }
++    };
++    action->latency_ = random_mixture(2, mixtures);
++  }
++  else if(size < 33956) {
++    double mixtures[2][3] = {
++      { 2.4961e-6, 2.3650e-7, 8.0081e-1 },
++      { 5.2967e-6, 7.5518e-7, 1.9919e-1 }
++    };
++    action->latency_ = random_mixture(2, mixtures);
++  }
++  else if(size < 63305) {
++    double mixtures[2][3] = {
++      { 5.6540e-6, 3.7206e-7, 9.0341e-1 },
++      { 1.5378e-5, 2.4388e-6, 9.6586e-2 }
++    };
++    action->latency_ = random_mixture(2, mixtures);
++  }
++  else {
++    double mixtures[2][3] = {
++      { 1.1753e-5, 8.8344e-7, 9.5938e-1 },
++      { 2.5759e-5, 2.3135e-6, 4.0619e-2 }
++    };
++    action->latency_ = random_mixture(2, mixtures);
++  }
++
+   if (action->latency_ > 0) {
+     action->set_variable(get_maxmin_system()->variable_new(action, 0.0, -1.0, constraints_per_variable));
+     if (get_update_algorithm() == Model::UpdateAlgo::LAZY) {
 '''
