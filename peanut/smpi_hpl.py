@@ -561,10 +561,10 @@ index f279771..f935e63 100644
 
     simgrid_stochastic_patch = r'''
 diff --git a/src/smpi/internals/smpi_host.cpp b/src/smpi/internals/smpi_host.cpp
-index 95c7284f6..81930fd57 100644
+index 95c7284f6..11eac8ea5 100644
 --- a/src/smpi/internals/smpi_host.cpp
 +++ b/src/smpi/internals/smpi_host.cpp
-@@ -11,9 +11,61 @@
+@@ -11,9 +11,62 @@
  #include <string>
  #include <vector>
  #include <xbt/log.h>
@@ -596,22 +596,23 @@ index 95c7284f6..81930fd57 100644
 +    // Here, exp and std are the desired expectation and standard deviation.
 +    // We compute the corresponding mu and sigma parameters for the normal distribution.
 +    double mu, sigma;
-+    sigma = std/sqrt(1-2/M_PI); //sigma = self.sigma/sqrt(1-2/numpy.pi)
-+    mu = exp - sigma*sqrt(2/M_PI); //mu = self.mu - sigma*sqrt(2/numpy.pi)
++    sigma = std/sqrt(1-2/M_PI);
++    mu = exp - sigma*sqrt(2/M_PI);
 +    double x = random_halfnormal();
 +    return x*sigma + mu;
 +}
 +
 +double random_mixture(int nb_modes, double mixtures[][3]) {
 +    // Selecting randomly a mode according to the desired probabilities
-+    int i = 0;
++    int i;
 +    do {
-+        double proba_sum = mixtures[0][2];
-+        assert(proba_sum >= 0);
++        double proba_sum = 0;
 +        double x = rand() / (double)RAND_MAX;  // random value in [0, 1]
-+        i=0;
++        i=-1;
 +        while(i < nb_modes && x > proba_sum) {
 +            i++;
++            if(i >= nb_modes)
++                break;
 +            proba_sum += mixtures[i][2];
 +            assert(mixtures[i][2] >= 0);
 +            assert(proba_sum <= 1);
@@ -626,7 +627,7 @@ index 95c7284f6..81930fd57 100644
  namespace simgrid {
  namespace smpi {
 
-@@ -21,6 +73,17 @@ simgrid::xbt::Extension<simgrid::s4u::Host, Host> Host::EXTENSION_ID;
+@@ -21,6 +74,17 @@ simgrid::xbt::Extension<simgrid::s4u::Host, Host> Host::EXTENSION_ID;
 
  double Host::orecv(size_t size)
  {
@@ -644,7 +645,7 @@ index 95c7284f6..81930fd57 100644
    double current = orecv_parsed_values.empty() ? 0.0 : orecv_parsed_values.front().values[0] +
                                                             orecv_parsed_values.front().values[1] * size;
 
-@@ -44,6 +107,16 @@ double Host::orecv(size_t size)
+@@ -44,6 +108,16 @@ double Host::orecv(size_t size)
 
  double Host::osend(size_t size)
  {
@@ -661,7 +662,7 @@ index 95c7284f6..81930fd57 100644
    double current =
        osend_parsed_values.empty() ? 0.0 : osend_parsed_values[0].values[0] + osend_parsed_values[0].values[1] * size;
    // Iterate over all the sections that were specified and find the right
-@@ -67,6 +140,17 @@ double Host::osend(size_t size)
+@@ -67,6 +141,17 @@ double Host::osend(size_t size)
 
  double Host::oisend(size_t size)
  {
