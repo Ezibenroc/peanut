@@ -72,15 +72,23 @@ def parse_smpi(output):
 class SMPIHPL(AbstractHPL):
     expfile_types = dict(dgemm_coefficient=float, dgemm_intercept=float, dtrsm_coefficient=float, dtrsm_intercept=float,
                          **AbstractHPL.expfile_types)
+    stochastic_network = False
+    stochastc_cpu = False
+    polynomial_dgemm = False
 
     def setup(self):
         super().setup()
         self.apt_install('python3', 'libboost-dev', 'pajeng')
+        simgrid_patch = self.simgrid_stochastic_patch if self.stochastic_network else None
         self.git_clone('https://framagit.org/simgrid/simgrid.git', 'simgrid',
-                       checkout='a6f883f0e28e60a805227007ec71cac80bced118', patch=self.simgrid_stochastic_patch)
+                       checkout='a6f883f0e28e60a805227007ec71cac80bced118', patch=simgrid_patch)
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
         patches = [self.makefile_patch]
+        if not self.stochastc_cpu:
+            patches.append(self.no_noise_patch)
+        if not self.polynomial_dgemm:
+            patches.append(self.linear_dgemm_patch)
         if self.terminate_early:
             patches.append(self.hpl_early_termination_patch)
         if self.insert_bcast:
@@ -194,6 +202,37 @@ class SMPIHPL(AbstractHPL):
         exp = cls.fact_design(factors)
         random.shuffle(exp)
         return exp
+
+    no_noise_patch = r'''
+diff --git a/src/blas/HPL_dgemm.c b/src/blas/HPL_dgemm.c
+index 0119820..dfe826c 100644
+--- a/src/blas/HPL_dgemm.c
++++ b/src/blas/HPL_dgemm.c
+@@ -144,6 +144,7 @@ double random_halfnormal(void) {
+ double random_halfnormal_shifted(double exp, double std) {
+     // Here, exp and std are the desired expectation and standard deviation.
+     // We compute the corresponding mu and sigma parameters for the normal distribution.
++    return exp;
+     double mu, sigma;
+     sigma = std/sqrt(1-2/M_PI);
+     mu = exp - sigma*sqrt(2/M_PI);
+    '''
+
+    linear_dgemm_patch = r'''
+diff --git a/include/hpl_blas.h b/include/hpl_blas.h
+index 35dea84..3803d8c 100644
+--- a/include/hpl_blas.h
++++ b/include/hpl_blas.h
+@@ -214,7 +214,7 @@ static double dtrsm_intercept = -1;
+     double mn =  (double)(M) * (double)(N);\
+     double mk =  (double)(M) * (double)(K);\
+     double nk =  (double)(N) * (double)(K);\
+-    double raw_duration = 2.844700e-07 + 6.317136e-11*mnk + 1.489053e-10*mn + 2.107985e-09*mk + 3.332944e-09*nk;\
++    double raw_duration = 6.484604e-11*mnk + 1e-6;\
+     double _S = 1.087202e-07 + 2.976703e-12*mnk + 8.365868e-12*mn + 1.528598e-10*mk + 9.931248e-11*nk;\
+     double sigma = 1.658897 * _S;\
+     double noise = random_halfnormal_shifted(0, sigma);\
+    '''
 
     makefile_patch = '''
 diff --git a/Make.SMPI b/Make.SMPI
