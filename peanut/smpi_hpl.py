@@ -72,32 +72,36 @@ def parse_smpi(output):
 class SMPIHPL(AbstractHPL):
     expfile_types = dict(dgemm_coefficient=float, dgemm_intercept=float, dtrsm_coefficient=float, dtrsm_intercept=float,
                          **AbstractHPL.expfile_types)
-    stochastic_network = False
-    stochastc_cpu = False
-    polynomial_dgemm = False
+    installfile_types = {'stochastic_network': bool, 'stochastic_cpu': bool, 'polynomial_dgemm': bool,
+                         **AbstractHPL.installfile_types}
 
     def setup(self):
         super().setup()
+        assert self.installfile is not None
+        install_options = self.installfile.content
         self.apt_install('python3', 'libboost-dev', 'pajeng')
-        simgrid_patch = self.simgrid_stochastic_patch if self.stochastic_network else None
+        if install_options['stochastic_network']:
+            simgrid_patch = self.simgrid_stochastic_patch
+        else:
+            simgrid_patch = None
         self.git_clone('https://framagit.org/simgrid/simgrid.git', 'simgrid',
                        checkout='a6f883f0e28e60a805227007ec71cac80bced118', patch=simgrid_patch)
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
         patches = [self.makefile_patch]
-        if not self.stochastc_cpu:
+        if not install_options['stochastic_cpu']:
             patches.append(self.no_noise_patch)
-        if not self.polynomial_dgemm:
+        if not install_options['polynomial_dgemm']:
             patches.append(self.linear_dgemm_patch)
-        if self.terminate_early:
+        if install_options['terminate_early']:
             patches.append(self.hpl_early_termination_patch)
-        if self.insert_bcast:
+        if install_options['insert_bcast']:
             patches.append(self.hpl_bcast_patch)
         patch = '\n'.join(patches) if patches else None
         self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch)
         self.nodes.run('make startup arch=SMPI', directory=self.hpl_dir)
         options = '-DSMPI_OPTIMIZATION'
-        if self.trace_execution:
+        if install_options['trace_execution']:
             options += ' -DSMPI_MEASURE'
         while True:
             try:
@@ -116,6 +120,8 @@ class SMPIHPL(AbstractHPL):
         self.nodes.write_files('1', '/proc/sys/vm/nr_hugepages')
 
     def run_exp(self):
+        assert self.installfile is not None
+        install_options = self.installfile.content
         results = []
         assert len(self.expfile) == 2
         platform = [f for f in self.expfile if f.extension == 'xml']
@@ -150,7 +156,7 @@ class SMPIHPL(AbstractHPL):
             cmd += 'LD_LIBRARY_PATH=/tmp/lib '
             cmd += 'smpirun -wrapper /usr/bin/time --cfg=smpi/privatize-global-variables:dlopen -np %d ' % nb_hpl_proc
             cmd += '--cfg=smpi/simulate-computation:no '
-            if self.trace_execution:
+            if install_options['trace_execution']:
                 paje_file = os.path.join(self.director.working_dir, 'trace_%d.paje' % i)
                 cmd += '--cfg=tracing:yes --cfg=tracing/filename:%s --cfg=tracing/smpi:1 ' % paje_file
                 cmd += '--cfg=tracing/smpi/display-sizes:yes '
@@ -159,7 +165,7 @@ class SMPIHPL(AbstractHPL):
             cmd += '--cfg=smpi/shared-malloc-blocksize:%d ' % (1 << 21)
             cmd += '--cfg=smpi/display-timing:yes -platform platform.xml -hostfile hosts.txt ./xhpl'
             output = self.director.run_unique(cmd, directory=self.hpl_dir+'/bin/SMPI')
-            if self.trace_execution:
+            if install_options['trace_execution']:
                 mpi_trace = 'trace_mpi_%d.csv' % i
                 blas_trace = os.path.join(self.director.working_dir, 'trace_blas_%d.csv' % i)
                 self.director.run('pj_dump -u %s | grep -v MPI_Iprobe > %s' % (paje_file, mpi_trace))

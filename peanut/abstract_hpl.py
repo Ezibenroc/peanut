@@ -20,9 +20,7 @@ class AbstractHPL(Job):
                     'thread_per_process': range(1, 129),
                     }
     expfile_types = {fact: int for fact in expfile_sets}
-    trace_execution = True
-    terminate_early = True
-    insert_bcast = True
+    installfile_types = {'trace_execution': bool, 'terminate_early': bool, 'insert_bcast': bool}
 
     @classmethod
     def check_exp(cls, exp):

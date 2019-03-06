@@ -17,23 +17,25 @@ class HPL(AbstractHPL):
 
     def setup(self):
         super().setup()
+        assert self.installfile is not None
+        install_options = self.installfile.content
         self.apt_install(
             'openmpi-bin',
             'libopenmpi-dev',
             'net-tools',
         )
-        if self.trace_execution:
+        if install_options['trace_execution']:
             self.apt_install('pajeng')
             self.install_akypuera()
         self.nodes.run('wget http://www.netlib.org/benchmark/hpl/hpl-2.2.tar.gz')
         self.nodes.run('tar -xvf hpl-2.2.tar.gz')
-        if self.trace_execution:
+        if install_options['trace_execution']:
             self.nodes.write_files(self.patch, self.hpl_dir + '/patch.diff')
             self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
-        if self.terminate_early:
+        if install_options['terminate_early']:
             self.nodes.write_files(self.hpl_early_termination_patch, self.hpl_dir + '/patch.diff')
             self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
-        if self.insert_bcast:
+        if install_options['insert_bcast']:
             self.nodes.write_files(self.hpl_bcast_patch, self.hpl_dir + '/patch.diff')
             self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
         self.nodes.write_files(self.makefile, os.path.join(self.hpl_dir, 'Make.Debian'))
@@ -50,6 +52,8 @@ class HPL(AbstractHPL):
         self.nodes.set_frequency_performance()
 
     def run_exp(self):
+        assert self.installfile is not None
+        install_options = self.installfile.content
         nb_cores = len(self.nodes.cores)
         results = []
         start = time.time()
@@ -74,14 +78,14 @@ class HPL(AbstractHPL):
             self.nodes.write_files(hpl_file, os.path.join(self.hpl_dir, 'bin/Debian/HPL.dat'))
             cmd = 'mpirun --allow-run-as-root --bind-to none --timestamp-output -np %d -x OMP_NUM_THREADS=%d -H %s'
             cmd += ' -x LD_LIBRARY_PATH=/tmp/lib'
-            if self.trace_execution:
+            if install_options['trace_execution']:
                 lib = os.path.join(self.akypuera_dir, 'libaky.so')
                 cmd += ' -x LD_PRELOAD=%s' % lib
                 cmd = 'LD_PRELOAD=%s %s' % (lib, cmd)
             cmd += ' ./xhpl'
             cmd = cmd % (max(nb_hpl_proc, nb_proc), thread_per_process, hosts)
             output = self.director.run_unique(cmd, directory=self.hpl_dir+'/bin/Debian')
-            if self.trace_execution:
+            if install_options['trace_execution']:
                 self.director.run('ls -l rastro-*rst', directory=self.hpl_dir+'/bin/Debian')
                 rstdir = os.path.join(self.orchestra.working_dir, self.hpl_dir, 'bin/Debian/rastro-*.rst')
                 blasdir = os.path.join(self.orchestra.working_dir, self.hpl_dir, 'bin/Debian/blas*trace')

@@ -336,6 +336,7 @@ class Job:
     expfile_types = {}
     expfile_header = None
     expfile_header_in_file = True
+    installfile_types = {}
     auto_oardel = False
     deployment_images = ['debian9-x64-%s' % mode for mode in ['min', 'base', 'nfs', 'big']]
     clusters = {
@@ -668,6 +669,10 @@ class Job:
             result['expfile'] = [f.basename for f in self.expfile]
         except AttributeError:
             pass
+        try:
+            result['installfile'] = self.installfile.basename
+        except AttributeError:
+            pass
         result.update(self.information)
         return result
 
@@ -699,6 +704,12 @@ class Job:
         else:
             for f in expfile:
                 self.add_content_to_archive(f.raw_content, f.basename)
+        try:
+            installfile = self.installfile
+        except AttributeError:  # no installfile
+            pass
+        else:
+            self.add_content_to_archive(installfile.raw_content, installfile.basename)
         log = log_stream.getvalue()
         log = log.encode('ascii', 'ignore').decode()  # removing any non-ascii character
         self.add_content_to_archive(log, 'commands.log')
@@ -779,6 +790,8 @@ class Job:
                             nargs='+', type=lambda f: ExpFile(filename=f, types=cls.expfile_types,
                                                               header=cls.expfile_header,
                                                               header_in_file=cls.expfile_header_in_file))
+        sp_run.add_argument('--installfile', help='File whith options regarding the installation.',
+                            type=lambda f: InstallFile(filename=f, types=cls.installfile_types))
         sp_run.add_argument('--batch', help='Whether to run this as a batch job or not.',
                             action='store_true', default=False)
         sp_gen = sp.add_parser('generate', help='Generate an experiment file.')
@@ -818,6 +831,10 @@ class Job:
             cmd += '--expfile %s' % ' '.join([f.basename for f in self.expfile])
         except AttributeError:
             pass
+        try:
+            cmd += '--installfile %s' % self.installfile.basename
+        except AttributeError:
+            pass
         return cmd.strip()
 
     @classmethod
@@ -832,6 +849,10 @@ class Job:
             cls.check_expfile(expfile)
         except ValueError as e:
             sys.exit(e)
+        try:
+            installfile = args['installfile']
+        except KeyError:
+            installfile = None
         if 'cluster' in args:
             cluster = args['cluster']
             site = cls.sites[cluster]
@@ -847,6 +868,8 @@ class Job:
             cls._check_install(frontend)
             for f in expfile:
                 frontend.write_files(f.raw_content, f.basename)
+            if installfile:
+                frontend.write_files(installfile.raw_content, installfile.basename)
         else:
             script = None
         if 'cluster' in args:
@@ -858,6 +881,7 @@ class Job:
         else:
             job = cls(jobid, frontend, deploy=deploy)
         job.expfile = expfile
+        job.installfile = installfile
         return job
 
     def setup(self):
@@ -875,7 +899,7 @@ class Job:
         self.get_archive()
         self.oardel()
 
-    def run_exp(self, expfile):
+    def run_exp(self):
         raise NotImplementedError()
 
     @classmethod
@@ -925,7 +949,11 @@ class Job:
         if args['deploy']:
             cmd += '--deploy %s ' % args['deploy']
         try:
-            cmd += '--expfile %s' % ' '.join([f.basename for f in args['expfile']])
+            cmd += '--expfile %s ' % ' '.join([f.basename for f in args['expfile']])
+        except KeyError:
+            pass
+        try:
+            cmd += '--installfile %s' % args['installfile'].basename
         except KeyError:
             pass
         return cmd
@@ -943,25 +971,18 @@ class Job:
                 cls.check_exp(exp)
 
 
-class ExpFile:
-    def __init__(self, *, filename, content=None, types=None, header=None, header_in_file=True):
+class AbstractFile:
+    def __init__(self, filename, types):
         self.filename = filename
-        self.header = header
-        self.header_in_file = header_in_file
         self.extension = os.path.splitext(filename)[1]
         if not self.extension:
             raise ValueError('File %s has no extension' % filename)
         self.extension = self.extension[1:]
         self.types = types
-        self.content = content
-        self.raw_content = None
         self.basename = os.path.basename(filename)
-        if not content:
-            self.read_content()
-        else:
-            if not self.types:
-                self.types = {key: type(val) for key, val in self.content[0].items()}
-            self.write_content()
+
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, self.filename)
 
     def read_content(self):
         try:
@@ -971,6 +992,39 @@ class ExpFile:
         self.raw_content = f.read()
         f.close()
         self.parse_content()
+
+
+class InstallFile(AbstractFile):
+    def __init__(self, *, filename, types):
+        super().__init__(filename, types)
+        self.read_content()
+
+    def parse_content(self):
+        assert self.extension == 'yaml'
+        self.content = yaml.load(self.raw_content)
+        for h in self.types:
+            if h not in self.content:
+                raise ValueError('Key "%s" not found in file %s' % (h, self.filename))
+        for h, val in self.content.items():
+            if h not in self.types:
+                raise ValueError('Unknown key "%s" in file %s' % (h, self.filename))
+            if not isinstance(val, self.types[h]):
+                raise ValueError('Wrong type for key "%s" in file %s' % (h, self.filename))
+
+
+class ExpFile(AbstractFile):
+    def __init__(self, *, filename, content=None, types=None, header=None, header_in_file=True):
+        super().__init__(filename, types)
+        self.header = header
+        self.header_in_file = header_in_file
+        self.content = content
+        self.raw_content = None
+        if not content:
+            self.read_content()
+        else:
+            if not self.types:
+                self.types = {key: type(val) for key, val in self.content[0].items()}
+            self.write_content()
 
     def write_content(self):
         self.check_types()
@@ -1029,9 +1083,6 @@ class ExpFile:
                 if real != expected:
                     raise ValueError('Wrong type with file %s for key %s, expected %s, got "%s"' %
                                      (self.filename, key, expected.__name__, real.__name__))
-
-    def __repr__(self):
-        return '%s(%s)' % (self.__class__.__name__, self.filename)
 
     def __iter__(self):
         yield from self.content
