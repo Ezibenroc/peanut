@@ -235,9 +235,9 @@ index 35dea84..3803d8c 100644
      double nk =  (double)(N) * (double)(K);\
 -    double raw_duration = 2.844700e-07 + 6.317136e-11*mnk + 1.489053e-10*mn + 2.107985e-09*mk + 3.332944e-09*nk;\
 +    double raw_duration = 6.484604e-11*mnk + 1e-6;\
-     double _S = 1.087202e-07 + 2.976703e-12*mnk + 8.365868e-12*mn + 1.528598e-10*mk + 9.931248e-11*nk;\
-     double sigma = 1.658897 * _S;\
+     double sigma = 1.087202e-07 + 2.976703e-12*mnk + 8.365868e-12*mn + 1.528598e-10*mk + 9.931248e-11*nk;\
      double noise = random_halfnormal_shifted(0, sigma);\
+     double injected_duration = raw_duration + noise;\
     '''
 
     makefile_patch = '''
