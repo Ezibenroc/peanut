@@ -455,7 +455,7 @@ class Job:
             self.__find_hostnames()
             return list(self.__hostnames)
 
-    def kadeploy(self, env=None, env_version='2019012408'):
+    def kadeploy(self, env=None, env_version='2018092718'):
         assert self.deploy
         env = env or self.deploy
         self.hostnames
