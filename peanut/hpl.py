@@ -84,7 +84,11 @@ class HPL(AbstractHPL):
                 cmd = 'LD_PRELOAD=%s %s' % (lib, cmd)
             cmd += ' ./xhpl'
             cmd = cmd % (max(nb_hpl_proc, nb_proc), thread_per_process, hosts)
+            self.register_temperature()
+            start_timestamp = self.get_timestamp()
             output = self.director.run_unique(cmd, directory=self.hpl_dir+'/bin/Debian')
+            stop_timestamp = self.get_timestamp()
+            self.register_temperature()
             if install_options['trace_execution']:
                 self.director.run('ls -l rastro-*rst', directory=self.hpl_dir+'/bin/Debian')
                 rstdir = os.path.join(self.orchestra.working_dir, self.hpl_dir, 'bin/Debian/rastro-*.rst')
@@ -114,6 +118,8 @@ class HPL(AbstractHPL):
             new_res['time'] = total_time
             new_res['gflops'] = gflops
             new_res['residual'] = residual
+            new_res['start_timestamp'] = start_timestamp
+            new_res['stop_timestamp'] = stop_timestamp
             results.append(new_res)
             ellapsed = time.time() - start
             exp_i = i+1

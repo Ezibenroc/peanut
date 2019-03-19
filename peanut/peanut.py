@@ -330,6 +330,14 @@ class Nodes:
         max_f = self.frequency_information.max_freq
         self.set_frequency_information('performance', max_f, max_f)
 
+    def get_temperature(self):
+        '''
+        By default, lm-sensors is not installed, and there would be some configuration to do...
+        '''
+        result = self.run('cat /sys/class/thermal/thermal_zone*/temp')
+        result = {k.host: [float(x)/1000 for x in v.stdout.split()] for (k, v) in result.items()}
+        return result
+
 
 class Job:
     install_path = '~/.local/bin/peanut'
@@ -594,6 +602,30 @@ class Job:
                 continue
             self.director.run('scp %s:/tmp/%s information/%s' % (host, filename, host))
 
+    def get_timestamp(self):
+        return str(datetime.datetime.now())
+
+    def register_temperature(self):
+        new_temp = self.nodes.get_temperature()
+        entry = {'timestamp': self.get_timestamp(), 'temperatures': new_temp}
+        try:
+            self._temperatures.append(entry)
+        except AttributeError:
+            self._temperatures = [entry]
+
+    def dump_temperatures(self, filename):
+        if not hasattr(self, '_temperatures'):
+            logger.warning('No temperature information recorded.')
+            return
+        with open(filename, 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow(('timestamp', 'hostname', 'temperature', 'sensor_id'))
+            for entry in self._temperatures:
+                timestamp = entry['timestamp']
+                for host, temperatures in entry['temperatures'].items():
+                    for i, temp in enumerate(temperatures):
+                        writer.writerow((timestamp, host, temp, i))
+
     def add_raw_information_to_archive(self):
         for host in self.hostnames:
             self.director.run('mkdir -p information/%s' % host)
@@ -697,6 +729,8 @@ class Job:
         job_info = self.platform_information()
         self.add_content_to_archive(yaml.dump(job_info, default_flow_style=False), 'info.yaml')
         self.add_content_to_archive(yaml.dump(self.oarstat(), default_flow_style=False), 'oarstat.yaml')
+        self.dump_temperatures('/tmp/temperatures.csv')
+        self.add_file_to_archive('/tmp/temperatures.csv', 'temperatures.csv')
         try:
             expfile = self.expfile
         except AttributeError:  # no expfile
@@ -887,6 +921,7 @@ class Job:
     def setup(self):
         if self.deploy:
             self.kadeploy()
+        self.register_temperature()
         self.nodes.run('rm -rf /tmp/*')
         # Creating an empty zip archive on the director node
         # See https://stackoverflow.com/a/50091682/4110059
@@ -895,6 +930,7 @@ class Job:
             self.send_key()
 
     def teardown(self):
+        self.register_temperature()
         self.add_information_to_archive()
         self.get_archive()
         self.oardel()
