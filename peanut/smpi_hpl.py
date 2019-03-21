@@ -606,10 +606,10 @@ index f279771..f935e63 100644
 
     simgrid_stochastic_patch = r'''
 diff --git a/src/smpi/internals/smpi_host.cpp b/src/smpi/internals/smpi_host.cpp
-index 95c7284f6..11eac8ea5 100644
+index 95c7284f6..93859b31c 100644
 --- a/src/smpi/internals/smpi_host.cpp
 +++ b/src/smpi/internals/smpi_host.cpp
-@@ -11,9 +11,62 @@
+@@ -11,9 +11,68 @@
  #include <string>
  #include <vector>
  #include <xbt/log.h>
@@ -660,7 +660,7 @@ index 95c7284f6..11eac8ea5 100644
 +                break;
 +            proba_sum += mixtures[i][2];
 +            assert(mixtures[i][2] >= 0);
-+            assert(proba_sum <= 1);
++            assert(proba_sum <= 1.0001);  // the sum may be slightly higher than 1
 +        }
 +    } while(i >= nb_modes); // the sum may be slightly lower than 1, in this case we redraw
 +    // Drawing a random number on this mode
@@ -669,64 +669,177 @@ index 95c7284f6..11eac8ea5 100644
 +    return random_halfnormal_shifted(mu, sigma);
 +}
 +
++double max(double a, double b) {
++    if(a < b)
++        return b;
++    return a;
++}
++
  namespace simgrid {
  namespace smpi {
 
-@@ -21,6 +74,17 @@ simgrid::xbt::Extension<simgrid::s4u::Host, Host> Host::EXTENSION_ID;
+@@ -21,6 +80,51 @@ simgrid::xbt::Extension<simgrid::s4u::Host, Host> Host::EXTENSION_ID;
 
  double Host::orecv(size_t size)
  {
++  double smpi_stochastic_intercept=-1, smpi_stochastic_coefficient=-1;
 +  if(size < 8133) {
-+    double mixtures[4][3] = {
-+        { 9.6819e-7, 8.2300e-8, 7.1131e-1 },
-+        { 2.2971e-6, 1.7681e-7, 2.8443e-1 },
-+        { 6.2560e-6, 1.0157e-6, 3.5385e-3 },
-+        { 1.5789e-5, 1.3538e-6, 7.1978e-4 }
-+    };
-+    double intercept = random_mixture(4, mixtures);
-+    double coefficient = 8.4439e-11;
-+    return coefficient*size + intercept;
++      double mixtures_smpi_stochastic_intercept[4][3] = {
++          {1.578858e-05, 1.353790e-06, 7.197802e-04},
++          {6.255998e-06, 1.015674e-06, 3.538462e-03},
++          {2.297108e-06, 1.768100e-07, 2.844286e-01},
++          {9.681853e-07, 8.229993e-08, 7.113132e-01}
++      };
++      smpi_stochastic_intercept = random_mixture(4, mixtures_smpi_stochastic_intercept);
++      smpi_stochastic_coefficient = 8.443925e-11;
++  }
++  if(8133 <= size && size < 15831) {
++      double mixtures_smpi_stochastic_intercept[4][3] = {
++          {1.480942e-05, 2.686375e-06, 9.777778e-04},
++          {6.427250e-06, 8.791199e-07, 4.088889e-03},
++          {2.489158e-06, 2.181154e-07, 2.819111e-01},
++          {4.415818e-07, 1.243068e-07, 7.130222e-01}
++      };
++      smpi_stochastic_intercept = random_mixture(4, mixtures_smpi_stochastic_intercept);
++      smpi_stochastic_coefficient = 1.044152e-10;
++  }
++  if(15831 <= size && size < 33956) {
++      double mixtures_smpi_stochastic_intercept[4][3] = {
++          {1.434377e-05, 2.540300e-06, 1.964286e-03},
++          {7.252870e-06, 5.616525e-07, 4.892857e-03},
++          {3.168695e-06, 4.400812e-07, 3.339286e-01},
++          {2.804051e-08, 2.379107e-07, 6.592143e-01}
++      };
++      smpi_stochastic_intercept = random_mixture(4, mixtures_smpi_stochastic_intercept);
++      smpi_stochastic_coefficient = 1.015274e-10;
++  }
++  if(33956 <= size && size < 64000) {
++      double mixtures_smpi_stochastic_intercept[4][3] = {
++          {1.550638e-05, 2.360998e-06, 3.000000e-03},
++          {8.684909e-06, 9.668691e-07, 1.303846e-02},
++          {4.243792e-06, 6.296865e-07, 4.060769e-01},
++          {-1.003977e-06, 5.748014e-07, 5.778846e-01}
++      };
++      smpi_stochastic_intercept = random_mixture(4, mixtures_smpi_stochastic_intercept);
++      smpi_stochastic_coefficient = 1.074226e-10;
++  }
++  if(size < 64000) {
++    double time = smpi_stochastic_coefficient*size + smpi_stochastic_intercept;
++    return max(time, 0);
 +  }
    double current = orecv_parsed_values.empty() ? 0.0 : orecv_parsed_values.front().values[0] +
                                                             orecv_parsed_values.front().values[1] * size;
 
-@@ -44,6 +108,16 @@ double Host::orecv(size_t size)
+@@ -44,6 +148,47 @@ double Host::orecv(size_t size)
 
  double Host::osend(size_t size)
  {
++  double smpi_stochastic_intercept=-1, smpi_stochastic_coefficient=-1;
 +  if(size < 8133) {
-+    double mixtures[3][3] = {
-+        { 1.8346e-7, 6.8484e-8, 8.0181e-1 },
-+        { 7.3421e-7, 1.9212e-7, 1.9782e-1 },
-+        { 1.1585e-5, 4.4453e-6, 3.6813e-4 }
-+    };
-+    double intercept = random_mixture(3, mixtures);
-+    double coefficient = 9.6307e-11;
-+    return coefficient*size + intercept;
++      double mixtures_smpi_stochastic_intercept[3][3] = {
++          {1.158459e-05, 4.445288e-06, 3.681319e-04},
++          {7.342084e-07, 1.921238e-07, 1.978187e-01},
++          {1.834565e-07, 6.848359e-08, 8.018132e-01}
++      };
++      smpi_stochastic_intercept = random_mixture(3, mixtures_smpi_stochastic_intercept);
++      smpi_stochastic_coefficient = 9.630674e-11;
++  }
++  if(8133 <= size && size < 15831) {
++      double mixtures_smpi_stochastic_intercept[3][3] = {
++          {1.309743e-05, 2.247476e-06, 1.560000e-02},
++          {5.666558e-06, 3.963607e-07, 8.555556e-02},
++          {3.811149e-06, 3.445008e-07, 8.988444e-01}
++      };
++      smpi_stochastic_intercept = random_mixture(3, mixtures_smpi_stochastic_intercept);
++      smpi_stochastic_coefficient = 1.002390e-10;
++  }
++  if(15831 <= size && size < 33956) {
++      double mixtures_smpi_stochastic_intercept[3][3] = {
++          {1.351552e-05, 2.434263e-06, 1.028571e-02},
++          {4.800520e-06, 5.476791e-07, 2.700357e-01},
++          {3.429396e-06, 1.783164e-07, 7.196786e-01}
++      };
++      smpi_stochastic_intercept = random_mixture(3, mixtures_smpi_stochastic_intercept);
++      smpi_stochastic_coefficient = 1.099663e-10;
++  }
++  if(33956 <= size && size < 64000) {
++      double mixtures_smpi_stochastic_intercept[3][3] = {
++          {2.499927e-05, 2.469454e-06, 5.730769e-03},
++          {1.538620e-05, 9.485493e-07, 1.705385e-01},
++          {7.027786e-06, 3.911404e-07, 8.237308e-01}
++      };
++      smpi_stochastic_intercept = random_mixture(3, mixtures_smpi_stochastic_intercept);
++      smpi_stochastic_coefficient = 1.263659e-10;
++  }
++  if(size < 64000) {
++    double time = smpi_stochastic_coefficient*size + smpi_stochastic_intercept;
++    return max(time, 0);
 +  }
    double current =
        osend_parsed_values.empty() ? 0.0 : osend_parsed_values[0].values[0] + osend_parsed_values[0].values[1] * size;
    // Iterate over all the sections that were specified and find the right
-@@ -67,6 +141,17 @@ double Host::osend(size_t size)
+@@ -67,6 +212,59 @@ double Host::osend(size_t size)
 
  double Host::oisend(size_t size)
  {
++  double smpi_stochastic_intercept=-1, smpi_stochastic_coefficient=-1;
 +  if(size < 8133) {
-+    double mixtures[4][3] = {
-+        { 2.1896e-7, 6.2602e-8, 7.7519e-1 - 6.9e-6 }, // due to a "bad" rounding, the sum exceeds 1...
-+        { 7.3872e-7, 1.6541e-7, 2.1041e-1 },
-+        { 2.1007e-5, 2.4279e-6, 1.1676e-2 },
-+        { 4.4927e-5, 4.0746e-6, 2.7308e-3 }
-+    };
-+    double intercept = random_mixture(4, mixtures);
-+    double coefficient = 7.0506e-11;
-+    return coefficient*size + intercept;
++      double mixtures_smpi_stochastic_intercept[4][3] = {
++          {4.492700e-05, 4.074614e-06, 2.730769e-03},
++          {2.100718e-05, 2.427905e-06, 1.167582e-02},
++          {7.387183e-07, 1.654137e-07, 2.104066e-01},
++          {2.189611e-07, 6.260189e-08, 7.751868e-01}
++      };
++      smpi_stochastic_intercept = random_mixture(4, mixtures_smpi_stochastic_intercept);
++      smpi_stochastic_coefficient = 7.050642e-11;
 +  }
++  if(8133 <= size && size < 15831) {
++      double mixtures_smpi_stochastic_intercept[4][3] = {
++          {4.590579e-05, 4.614774e-06, 2.755556e-03},
++          {2.034218e-05, 2.321272e-06, 1.097778e-02},
++          {8.584810e-07, 2.402363e-07, 2.008444e-01},
++          {-1.862171e-07, 1.632566e-07, 7.854222e-01}
++      };
++      smpi_stochastic_intercept = random_mixture(4, mixtures_smpi_stochastic_intercept);
++      smpi_stochastic_coefficient = 1.229780e-10;
++  }
++  if(15831 <= size && size < 33956) {
++      double mixtures_smpi_stochastic_intercept[4][3] = {
++          {5.106743e-05, 5.243046e-06, 2.785714e-03},
++          {2.200488e-05, 2.521526e-06, 1.325000e-02},
++          {6.032292e-06, 4.870055e-07, 1.873571e-01},
++          {1.792845e-06, 1.766367e-07, 7.966071e-01}
++      };
++      smpi_stochastic_intercept = random_mixture(4, mixtures_smpi_stochastic_intercept);
++      smpi_stochastic_coefficient = 4.059840e-11;
++  }
++  if(33956 <= size && size < 64000) {
++      double mixtures_smpi_stochastic_intercept[4][3] = {
++          {5.093095e-05, 3.380393e-06, 2.461538e-03},
++          {2.201740e-05, 2.466355e-06, 1.430769e-02},
++          {7.167819e-06, 5.962693e-07, 1.693077e-01},
++          {1.817755e-06, 1.954229e-07, 8.139231e-01}
++      };
++      smpi_stochastic_intercept = random_mixture(4, mixtures_smpi_stochastic_intercept);
++      smpi_stochastic_coefficient = 3.293459e-11;
++  }
++  if(64000 <= size) {
++      double mixtures_smpi_stochastic_intercept[4][3] = {
++          {4.549290e-05, 4.842656e-06, 1.382353e-03},
++          {2.117993e-05, 2.147733e-06, 1.298039e-02},
++          {7.524123e-07, 8.528449e-08, 1.205392e-01},
++          {2.759115e-07, 3.453358e-08, 8.650980e-01}
++      };
++      smpi_stochastic_intercept = random_mixture(4, mixtures_smpi_stochastic_intercept);
++      smpi_stochastic_coefficient = 0.000000e+00;
++  }
++  double time = smpi_stochastic_coefficient*size + smpi_stochastic_intercept;
++  return max(time, 0);
    double current =
        oisend_parsed_values.empty() ? 0.0 : oisend_parsed_values[0].values[0] + oisend_parsed_values[0].values[1] * size;
 
 diff --git a/src/surf/network_cm02.cpp b/src/surf/network_cm02.cpp
-index a85a3d5ed..22a2996ed 100644
+index a85a3d5ed..ca09e78f5 100644
 --- a/src/surf/network_cm02.cpp
 +++ b/src/surf/network_cm02.cpp
 @@ -12,6 +12,8 @@
@@ -738,39 +851,18 @@ index a85a3d5ed..22a2996ed 100644
  XBT_LOG_EXTERNAL_DEFAULT_CATEGORY(surf_network);
 
  double sg_latency_factor = 1.0; /* default value; can be set by model or from command line */
-@@ -257,6 +259,39 @@ Action* NetworkCm02Model::communicate(s4u::Host* src, s4u::Host* dst, double siz
+@@ -257,6 +259,18 @@ Action* NetworkCm02Model::communicate(s4u::Host* src, s4u::Host* dst, double siz
    int constraints_per_variable = route.size();
    constraints_per_variable += back_route.size();
 
 +  // TODO HERE!
-+  if(size < 8133) {
++  if(size < 64000) {
 +    // nothing here, the randomness is done in or/os/oi
-+  }
-+  else if(size < 15831) {
-+    double mixtures[2][3] = {
-+      { 2.5333e-6, 2.2377e-7, 8.0320e-1 },
-+      { 4.7791e-6, 6.7538e-7, 1.9680e-1 }
-+    };
-+    action->latency_ = random_mixture(2, mixtures);
-+  }
-+  else if(size < 33956) {
-+    double mixtures[2][3] = {
-+      { 2.4961e-6, 2.3650e-7, 8.0081e-1 },
-+      { 5.2967e-6, 7.5518e-7, 1.9919e-1 }
-+    };
-+    action->latency_ = random_mixture(2, mixtures);
-+  }
-+  else if(size < 63305) {
-+    double mixtures[2][3] = {
-+      { 5.6540e-6, 3.7206e-7, 9.0341e-1 },
-+      { 1.5378e-5, 2.4388e-6, 9.6586e-2 }
-+    };
-+    action->latency_ = random_mixture(2, mixtures);
 +  }
 +  else {
 +    double mixtures[2][3] = {
-+      { 1.1753e-5, 8.8344e-7, 9.5938e-1 },
-+      { 2.5759e-5, 2.3135e-6, 4.0619e-2 }
++      {2.575923e-05, 2.313502e-06, 4.061920e-02},
++      {1.175278e-05, 8.834412e-07, 9.593808e-01}
 +    };
 +    action->latency_ = random_mixture(2, mixtures);
 +  }
