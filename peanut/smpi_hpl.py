@@ -193,15 +193,13 @@ class SMPIHPL(AbstractHPL):
     @classmethod
     def gen_exp(cls):
         factors = dict(cls.expfile_sets)
-        factors['matrix_size'] = [2**i for i in range(12, 18)]
-#        factors['matrix_size'] += [s + s//2 for s in factors['matrix_size'][:-1]]
-        factors['matrix_size'] = list(range(300000, 500001, 50000))  # list(range(50000, 250001, 25000))
+        factors['matrix_size'] = [int(x) for x in [5e5, 1e6, 2e6, 4e6]]
         factors['block_size'] = [2**7]
-        factors['dgemm_coefficient'] = [6.484604e-11]
-        factors['dgemm_intercept'] = [2.401076e-04]
-        factors['dtrsm_coefficient'] = [8.021068e-11]
-        factors['dtrsm_intercept'] = [6.929164e-07]
-        factors['proc_p'] = [32]
+        factors['dgemm_coefficient'] = [42.0]
+        factors['dgemm_intercept'] = [42.0]
+        factors['dtrsm_coefficient'] = [42.0]
+        factors['dtrsm_intercept'] = [42.0]
+        factors['proc_p'] = [16, 32, 64, 128]
         factors['proc_q'] = [32]
         factors['rfact'] = [2]
         factors['pfact'] = [1]
