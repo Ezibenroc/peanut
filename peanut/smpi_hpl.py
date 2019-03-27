@@ -80,6 +80,7 @@ class SMPIHPL(AbstractHPL):
         assert self.installfile is not None
         install_options = self.installfile.content
         self.apt_install('python3', 'libboost-dev', 'pajeng')
+        self.git_clone('https://github.com/Ezibenroc/memwatch.git', 'memwatch')
         if install_options['stochastic_network']:
             simgrid_patch = self.simgrid_stochastic_patch
         else:
@@ -150,21 +151,26 @@ class SMPIHPL(AbstractHPL):
             dtrsm_coeff = exp['dtrsm_coefficient']
             dtrsm_inter = exp['dtrsm_intercept']
 
+            memwatch_file = os.path.join(self.nodes.working_dir, 'memory_%d.csv' % i)
+            memwatch_script = os.path.join(self.nodes.working_dir, 'memwatch/memwatch.py')
+
             cmd = 'SMPI_DGEMM_COEFFICIENT=%e SMPI_DGEMM_INTERCEPT=%e ' % (dgemm_coeff, dgemm_inter)
             cmd += 'SMPI_DTRSM_COEFFICIENT=%e SMPI_DTRSM_INTERCEPT=%e ' % (dtrsm_coeff, dtrsm_inter)
             cmd += 'TIME="/usr/bin/time:output %U %S %F %R %P" '
             cmd += 'LD_LIBRARY_PATH=/tmp/lib '
-            cmd += 'smpirun -wrapper /usr/bin/time --cfg=smpi/privatize-global-variables:dlopen -np %d ' % nb_hpl_proc
-            cmd += '--cfg=smpi/simulate-computation:no '
+            subcmd = 'smpirun -wrapper /usr/bin/time --cfg=smpi/privatize-global-variables:dlopen -np %d ' % nb_hpl_proc
+            subcmd += '--cfg=smpi/simulate-computation:no '
             if install_options['trace_execution']:
                 paje_file = os.path.join(self.director.working_dir, 'trace_%d.paje' % i)
-                cmd += '--cfg=tracing:yes --cfg=tracing/filename:%s --cfg=tracing/smpi:1 ' % paje_file
-                cmd += '--cfg=tracing/smpi/display-sizes:yes '
-                cmd += '--cfg=tracing/smpi/computing:yes '
-            cmd += '--cfg=smpi/shared-malloc-hugepage:/root/huge '
-            cmd += '--cfg=smpi/shared-malloc-blocksize:%d ' % (1 << 21)
-            cmd += '--cfg=smpi/display-timing:yes -platform platform.xml -hostfile hosts.txt ./xhpl'
+                subcmd += '--cfg=tracing:yes --cfg=tracing/filename:%s --cfg=tracing/smpi:1 ' % paje_file
+                subcmd += '--cfg=tracing/smpi/display-sizes:yes '
+                subcmd += '--cfg=tracing/smpi/computing:yes '
+            subcmd += '--cfg=smpi/shared-malloc-hugepage:/root/huge '
+            subcmd += '--cfg=smpi/shared-malloc-blocksize:%d ' % (1 << 21)
+            subcmd += '--cfg=smpi/display-timing:yes -platform platform.xml -hostfile hosts.txt ./xhpl'
+            cmd += 'python3 %s -t 1 -o %s "%s"' % (memwatch_script, memwatch_file, subcmd)
             output = self.director.run_unique(cmd, directory=self.hpl_dir+'/bin/SMPI')
+            self.add_local_to_archive(memwatch_file)
             if install_options['trace_execution']:
                 mpi_trace = 'trace_mpi_%d.csv' % i
                 blas_trace = os.path.join(self.director.working_dir, 'trace_blas_%d.csv' % i)
