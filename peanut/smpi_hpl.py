@@ -73,6 +73,7 @@ class SMPIHPL(AbstractHPL):
     expfile_types = dict(dgemm_coefficient=float, dgemm_intercept=float, dtrsm_coefficient=float, dtrsm_intercept=float,
                          **AbstractHPL.expfile_types)
     installfile_types = {'stochastic_network': bool, 'stochastic_cpu': bool, 'polynomial_dgemm': bool,
+                         'heterogeneous_dgemm': bool,
                          **AbstractHPL.installfile_types}
 
     def setup(self):
@@ -89,17 +90,24 @@ class SMPIHPL(AbstractHPL):
                        checkout='a6f883f0e28e60a805227007ec71cac80bced118', patch=simgrid_patch)
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
+        if not install_options['heterogeneous_dgemm']:
+            hpl_branch = 'homogeneous_dgemm'
+        else:
+            if install_options['polynomial_dgemm']:
+                hpl_branch = 'heterogeneous_polynomial_dgemm'
+            else:
+                hpl_branch = 'heterogeneous_linear_dgemm'
         patches = [self.makefile_patch]
         if not install_options['stochastic_cpu']:
             patches.append(self.no_noise_patch)
-        if not install_options['polynomial_dgemm']:
+        if not install_options['polynomial_dgemm'] and not install_options['heterogeneous_dgemm']:
             patches.append(self.linear_dgemm_patch)
         if install_options['terminate_early']:
             patches.append(self.hpl_early_termination_patch)
         if install_options['insert_bcast']:
             patches.append(self.hpl_bcast_patch)
         patch = '\n'.join(patches) if patches else None
-        self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch)
+        self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch, checkout=hpl_branch)
         self.nodes.run('make startup arch=SMPI', directory=self.hpl_dir)
         options = '-DSMPI_OPTIMIZATION'
         if install_options['trace_execution']:
