@@ -740,10 +740,9 @@ class Job:
                 self.add_content_to_archive(f.raw_content, f.basename)
         try:
             installfile = self.installfile
+            self.add_content_to_archive(installfile.raw_content, installfile.basename)
         except AttributeError:  # no installfile
             pass
-        else:
-            self.add_content_to_archive(installfile.raw_content, installfile.basename)
         log = log_stream.getvalue()
         log = log.encode('ascii', 'ignore').decode()  # removing any non-ascii character
         self.add_content_to_archive(log, 'commands.log')
