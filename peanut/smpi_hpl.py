@@ -106,8 +106,6 @@ class SMPIHPL(AbstractHPL):
             patches.append(self.hpl_early_termination_patch)
         if install_options['insert_bcast']:
             patches.append(self.hpl_bcast_patch)
-        if install_options['polynomial_dgemm'] and install_options['heterogeneous_dgemm']:
-            patches.append(self.slow_nodes_patch)
         patch = '\n'.join(patches) if patches else None
         self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch, checkout=hpl_branch)
         self.nodes.run('make startup arch=SMPI', directory=self.hpl_dir)
@@ -617,52 +615,6 @@ index f279771..f935e63 100644
  #endif
     const double               * w = W, * w0;
 '''
-
-    slow_nodes_patch = r'''
-diff --git a/src/blas/HPL_dgemm.c b/src/blas/HPL_dgemm.c
-index a4de021..dd235b7 100644
---- a/src/blas/HPL_dgemm.c
-+++ b/src/blas/HPL_dgemm.c
-@@ -320,6 +320,38 @@ double dgemm_time(double M, double N, double K) {
-             mu    = 5.265666e-07 + 6.768453e-11*mnk + -7.996460e-11*mn + 1.666515e-09*mk + 3.016302e-09*nk;
-             sigma = 6.399890e-07 + 4.308984e-13*mnk + 2.240832e-11*mn + 5.539865e-11*mk + 6.012762e-11*nk;
-             return mu + random_halfnormal_shifted(0, sigma);
-+        case 26: // node 13
-+            mu    = 5.854250e-07 + 7.920080e-11*mnk + -4.312371e-10*mn + 1.570852e-09*mk + 2.897047e-09*nk;
-+            sigma = 6.898829e-07 + 9.474129e-12*mnk + 1.542634e-10*mn + 8.782591e-11*mk + 7.385075e-11*nk;
-+            return mu + random_halfnormal_shifted(0, sigma);
-+        case 27: // node 13
-+            mu    = 5.451164e-07 + 7.640014e-11*mnk + -6.124134e-10*mn + 1.424546e-09*mk + 2.626436e-09*nk;
-+            sigma = 6.136947e-07 + 1.383671e-12*mnk + 2.030638e-10*mn + 2.081739e-10*mk + 2.144467e-10*nk;
-+            return mu + random_halfnormal_shifted(0, sigma);
-+        case 28: // node 14
-+            mu    = 5.872356e-07 + 7.825684e-11*mnk + -4.333443e-10*mn + 1.679397e-09*mk + 3.005435e-09*nk;
-+            sigma = 7.236303e-07 + 2.564661e-12*mnk + 2.515660e-10*mn + 2.039354e-10*mk + 2.183537e-10*nk;
-+            return mu + random_halfnormal_shifted(0, sigma);
-+        case 29: // node 14
-+            mu    = 5.806772e-07 + 7.879295e-11*mnk + -7.616645e-10*mn + 1.487116e-09*mk + 2.601874e-09*nk;
-+            sigma = 7.199230e-07 + 1.651169e-12*mnk + 3.515796e-10*mn + 2.983138e-10*mk + 3.562135e-10*nk;
-+            return mu + random_halfnormal_shifted(0, sigma);
-+        case 30: // node 15
-+            mu    = 6.008916e-07 + 8.450100e-11*mnk + -3.407193e-10*mn + 1.920816e-09*mk + 3.206279e-09*nk;
-+            sigma = 6.852550e-07 + 4.222922e-12*mnk + 1.716549e-10*mn + 1.196224e-10*mk + 1.923672e-10*nk;
-+            return mu + random_halfnormal_shifted(0, sigma);
-+        case 31: // node 15
-+            mu    = 6.049290e-07 + 8.384803e-11*mnk + -4.844474e-10*mn + 1.822356e-09*mk + 3.099135e-09*nk;
-+            sigma = 7.446548e-07 + 1.080379e-11*mnk + -3.917419e-13*mn + -5.299022e-11*mk + 7.561419e-11*nk;
-+            return mu + random_halfnormal_shifted(0, sigma);
-+        case 32: // node 16
-+            mu    = 5.847983e-07 + 7.985392e-11*mnk + -5.136920e-10*mn + 1.604278e-09*mk + 2.872621e-09*nk;
-+            sigma = 7.258348e-07 + 2.105082e-12*mnk + 2.925803e-10*mn + 2.668062e-10*mk + 3.169975e-10*nk;
-+            return mu + random_halfnormal_shifted(0, sigma);
-+        case 33: // node 16
-+            mu    = 5.692598e-07 + 7.703683e-11*mnk + -9.022247e-11*mn + 2.001776e-09*mk + 3.381385e-09*nk;
-+            sigma = 7.167982e-07 + 4.668696e-12*mnk + 2.669372e-10*mn + 3.232302e-10*mk + 2.501175e-10*nk;
-+            return mu + random_halfnormal_shifted(0, sigma);
-         case 34: // node 17
-             mu    = 5.344454e-07 + 7.110007e-11*mnk + -4.274161e-10*mn + 1.470139e-09*mk + 2.724523e-09*nk;
-             sigma = 6.004602e-07 + 1.634435e-12*mnk + 9.119124e-11*mn + 1.183724e-10*mk + 9.917033e-11*nk;
-    '''
 
     simgrid_stochastic_patch = r'''
 diff --git a/src/smpi/internals/smpi_host.cpp b/src/smpi/internals/smpi_host.cpp
