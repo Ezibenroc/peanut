@@ -6,6 +6,7 @@ from .mpi_calibration import MPICalibration
 from .mpi_saturation import MPISaturation
 from .hpl import HPL
 from .blas_calibration import BLASCalibration
+from .stress_test import StressTest
 from .version import __version__, __git_version__
 from .smpi_hpl import SMPIHPL
 
@@ -13,6 +14,7 @@ classes = [
     MPICalibration,
     MPISaturation,
     BLASCalibration,
+    StressTest,
     HPL,
     SMPIHPL
 ]
