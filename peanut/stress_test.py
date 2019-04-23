@@ -1,5 +1,5 @@
 import os
-from .peanut import Job, logger, RunError
+from .peanut import Job
 
 
 class StressTest(Job):
@@ -10,7 +10,7 @@ class StressTest(Job):
     def check_exp(cls, exp):
         for k, v in exp.items():
             if k == 'mode':
-                if v not in ('blas', 'stress'):
+                if v not in ('blas', 'stress', 'loop'):
                     raise ValueError('Error with experiment %s, unknown mode "%s"' % (exp, v))
             elif v < 0:
                 raise ValueError('Error with experiment %s, negative %s' % (exp, k))
@@ -48,18 +48,26 @@ class StressTest(Job):
             temp_file = os.path.join(self.nodes.working_dir, 'stress_temp_%d.csv' % i)
             perf_file = None
             freq_file = None
-            cmd = 'python3 stress-test/stress_test.py'
-            cmd += ' --nb_runs %d --nb_sleeps %d --sleep_time %d' % (exp['nb_runs'], exp['nb_sleeps'], exp['sleep_time'])
+            cmd = 'python3 stress_test.py'
+            cmd += ' --nb_runs %d --nb_calls %d --nb_sleeps %d --sleep_time %d' % (exp['nb_runs'], exp['nb_calls'],
+                                                                                   exp['nb_sleeps'], exp['sleep_time'])
             cmd += ' --temp_output %s' % temp_file
             if exp['mode'] == 'blas':
                 perf_file = os.path.join(self.nodes.working_dir, 'stress_perf_%d.csv' % i)
-                cmd += ' blas --size %d --nb_calls %d' % (exp['size'], exp['nb_calls'])
+                cmd += ' blas --size %d' % exp['size']
                 cmd += ' --perf_output %s' % perf_file
             elif exp['mode'] == 'stress':
                 freq_file = os.path.join(self.nodes.working_dir, 'stress_freq_%d.csv' % i)
                 cmd += ' command "stress -c %d -t %ds"' % (len(self.nodes.cores), exp['size'])
                 cmd += ' --freq_output %s' % freq_file
-            self.nodes.run(cmd)
+            elif exp['mode'] == 'loop':
+                perf_file = os.path.join(self.nodes.working_dir, 'stress_perf_%d.csv' % i)
+                freq_file = os.path.join(self.nodes.working_dir, 'stress_freq_%d.csv' % i)
+                cmd += ' loop --size %d' % exp['size']
+                cmd += ' --perf_output %s' % perf_file
+                cmd += ' --freq_output %s' % freq_file
+                cmd += ' --cores %s' % (' '.join([str(n[0]) for n in self.nodes.cores]))
+            self.nodes.run(cmd, directory=os.path.join(self.nodes.working_dir, 'stress-test'))
             self.add_local_to_archive(temp_file)
             if perf_file:
                 self.add_local_to_archive(perf_file)
