@@ -285,15 +285,22 @@ class Nodes:
             freq = self.run_unique('cpufreq-info -l').stdout
             min_f, max_f = [int(f) for f in freq.split()]
             governors = self.run_unique('cpufreq-info -g').stdout.split()
-            tuple_cls = collections.namedtuple('frequency_information', ['governor', 'min_freq', 'max_freq'])
-            self.__frequency_information = tuple_cls(tuple(governors), min_f, max_f)
+            active_driver = self.run_unique('cpufreq-info -d').stdout.strip()
+            idle_driver = self.run_unique('cat /sys/devices/system/cpu/cpuidle/current_driver').stdout.strip()
+            idle_files = self.run_unique('ls /sys/devices/system/cpu/cpu0/cpuidle').stdout.split()
+            nb_states = len(idle_files)
+            assert idle_files == ['state%d' % i for i in range(nb_states)]
+            tuple_cls = collections.namedtuple('frequency_information', ['active_driver', 'idle_driver', 'governor',
+                                                                         'idle_states', 'min_freq', 'max_freq'])
+            self.__frequency_information = tuple_cls(active_driver, idle_driver, tuple(governors), range(nb_states)[1:],
+                                                     min_f, max_f)
             return self.__frequency_information
 
     @property
     def current_frequency_information(self):
-            info = self.run_unique('cpufreq-info -p').stdout.split()
-            tuple_cls = collections.namedtuple('frequency_information', ['governor', 'min_freq', 'max_freq'])
-            return tuple_cls(info[2], int(info[0]), int(info[1]))
+        info = self.run_unique('cpufreq-info -p').stdout.split()
+        tuple_cls = collections.namedtuple('frequency_information', ['governor', 'min_freq', 'max_freq'])
+        return tuple_cls(info[2], int(info[0]), int(info[1]))
 
     def set_frequency_information(self, governor=None, min_freq=None, max_freq=None):
         if not governor and not min_freq and not max_freq:
@@ -337,6 +344,53 @@ class Nodes:
         result = self.run('cat /sys/class/thermal/thermal_zone*/temp')
         result = {k.host: [float(x)/1000 for x in v.stdout.split()] for (k, v) in result.items()}
         return result
+
+    def get_frequency(self):
+        cores = [c[0] for c in self.cores]
+        files = ['/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq' % c for c in cores]
+        result = self.run('cat %s' % ' '.join(files))
+        result = {k.host: [int(x)*1000 for x in v.stdout.split()] for (k, v) in result.items()}
+        return result
+
+    def watch_frequency(self, time_interval=1):
+        def mean(l): return sum(l)/len(l)
+        try:
+            old_level = logger.level
+            logger.setLevel(logging.INFO)
+            while True:
+                frequencies = self.get_frequency()
+                for host in self.hostnames:
+                    freq = frequencies[host]
+                    logger.info('%s: min=%.2fGHz | max=%.2fGHz | mean=%.2fGHz' % (host, min(freq)*1e-9,
+                                                                                  max(freq)*1e-9, mean(freq)*1e-9))
+                time.sleep(time_interval)
+        except KeyboardInterrupt:
+            logger.setLevel(old_level)
+            pass
+
+    def __set_turboboost(self, value):
+        assert value in (0, 1)
+        assert self.frequency_information.active_driver == 'intel_pstate'
+        self.write_files(str(1-value), '/sys/devices/system/cpu/intel_pstate/no_turbo')
+
+    def enable_turboboost(self):
+        self.__set_turboboost(1)
+
+    def disable_turboboost(self):
+        self.__set_turboboost(0)
+
+    def __set_idle_state(self, value):
+        cores = [c[0] for c in self.cores]
+        assert value in (0, 1)
+        files = ['/sys/devices/system/cpu/cpu%d/cpuidle/state%d/disable' % (core, state)
+                 for core in cores for state in self.frequency_information.idle_states]
+        self.write_files(str(1-value), *files)
+
+    def enable_idle_state(self):
+        self.__set_idle_state(1)
+
+    def disable_idle_state(self):
+        self.__set_idle_state(0)
 
 
 class Job:
