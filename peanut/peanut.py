@@ -356,7 +356,7 @@ class Nodes:
         def mean(l): return sum(l)/len(l)
         frequencies = self.get_frequency()
         freq = sum(list(frequencies.values()), [])
-        return 'min=%.2fghz | max=%.2fghz | mean=%.2fghz' % (min(freq)*1e-9, max(freq)*1e-9, mean(freq)*1e-9)
+        return 'min=%.2fGHz | max=%.2fGHz | mean=%.2fGHz' % (min(freq)*1e-9, max(freq)*1e-9, mean(freq)*1e-9)
 
     def __set_turboboost(self, value):
         assert value in (0, 1)
