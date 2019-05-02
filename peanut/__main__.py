@@ -9,6 +9,7 @@ from .blas_calibration import BLASCalibration
 from .stress_test import StressTest
 from .version import __version__, __git_version__
 from .smpi_hpl import SMPIHPL
+from .frequency_get import FrequencyGet
 
 classes = [
     MPICalibration,
@@ -16,7 +17,8 @@ classes = [
     BLASCalibration,
     StressTest,
     HPL,
-    SMPIHPL
+    SMPIHPL,
+    FrequencyGet
 ]
 
 entry_points = {cls.__name__: cls.main for cls in classes}

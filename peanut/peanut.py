@@ -352,21 +352,11 @@ class Nodes:
         result = {k.host: [int(x)*1000 for x in v.stdout.split()] for (k, v) in result.items()}
         return result
 
-    def watch_frequency(self, time_interval=1):
+    def pretty_frequency(self):
         def mean(l): return sum(l)/len(l)
-        try:
-            old_level = logger.level
-            logger.setLevel(logging.INFO)
-            while True:
-                frequencies = self.get_frequency()
-                for host in self.hostnames:
-                    freq = frequencies[host]
-                    logger.info('%s: min=%.2fGHz | max=%.2fGHz | mean=%.2fGHz' % (host, min(freq)*1e-9,
-                                                                                  max(freq)*1e-9, mean(freq)*1e-9))
-                time.sleep(time_interval)
-        except KeyboardInterrupt:
-            logger.setLevel(old_level)
-            pass
+        frequencies = self.get_frequency()
+        freq = sum(list(frequencies.values()), [])
+        return 'min=%.2fghz | max=%.2fghz | mean=%.2fghz' % (min(freq)*1e-9, max(freq)*1e-9, mean(freq)*1e-9)
 
     def __set_turboboost(self, value):
         assert value in (0, 1)
