@@ -329,6 +329,21 @@ class Nodes:
             cmd += ' -u %d' % max_freq
         self.run(cmd)
 
+    def set_frequency_information_pstate(self, min_perf_pct=None, max_perf_pct=None):
+        assert self.frequency_information.active_driver == 'intel_pstate'
+        if min_perf_pct is None and max_perf_pct is None:
+            raise ValueError('At least one of min_perf_pct and max_perf_pct must be given.')
+        for val in [min_perf_pct, max_perf_pct]:
+            if val is not None and val not in range(0, 101):
+                raise ValueError('Percentage value %s must be an integer between 0 and 100' % val)
+        if min_perf_pct is not None and max_perf_pct is not None and min_perf_pct > max_perf_pct:
+            raise ValueError('The min_perf_pct(=%d) must be higher than the max_perf_pct(=%d)' % (min_perf_pct,
+                                                                                                  max_perf_pct))
+        if min_perf_pct is not None:
+            self.write_files(str(min_perf_pct), '/sys/devices/system/cpu/intel_pstate/min_perf_pct')
+        if max_perf_pct is not None:
+            self.write_files(str(max_perf_pct), '/sys/devices/system/cpu/intel_pstate/max_perf_pct')
+
     def reset_frequency_information(self):
         info = self.frequency_information
         self.set_frequency_information('powersave', info.min_freq, info.max_freq)
