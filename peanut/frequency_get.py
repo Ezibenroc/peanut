@@ -4,7 +4,7 @@ from .peanut import Job, logger
 
 class FrequencyGet(Job):
     sleep_time = 10
-    percentages = [1] + list(range(10, 101, 10))
+    percentages = list(range(10, 101, 10)) + [1]
 
     def setup(self):
         super().setup()
@@ -35,8 +35,12 @@ class FrequencyGet(Job):
             self.nodes.set_frequency_information_pstate(min_perf_pct=pct, max_perf_pct=pct)
             self.print_freq('%s, %3d%%' % (name, pct))
 
+    def stress_all_cores(self):
+        nb_proc = len(self.nodes.cores) * 4
+        self.nodes.run('tmux new-session -d -s tmux_0 "stress -c %d -t 60000s"' % nb_proc)
+
     def run_exp(self):
-        self.nodes.run('tmux new-session -d -s tmux_0 "stress -c 32 -t 60000s"')  # load all the cores at 100%
+        self.stress_all_cores()
         self.print_freq('Initial state')
         self.test_frequencies('Initial state')
         self.nodes.disable_idle_state()
