@@ -73,7 +73,8 @@ class SMPIHPL(AbstractHPL):
     expfile_types = dict(dgemm_coefficient=float, dgemm_intercept=float, dtrsm_coefficient=float, dtrsm_intercept=float,
                          **AbstractHPL.expfile_types)
     installfile_types = {'stochastic_network': bool, 'stochastic_cpu': bool, 'polynomial_dgemm': bool,
-                         'heterogeneous_dgemm': bool,
+                         'heterogeneous_dgemm': bool, 'disable_hpl_kernels': bool,
+                         'disable_nondgemm_randomness': bool,
                          **AbstractHPL.installfile_types}
 
     def setup(self):
@@ -106,6 +107,10 @@ class SMPIHPL(AbstractHPL):
             patches.append(self.hpl_early_termination_patch)
         if install_options['insert_bcast']:
             patches.append(self.hpl_bcast_patch)
+        if install_options['disable_hpl_kernels']:
+            patches.append(self.no_hpl_kernels_patch)
+        if install_options['disable_nondgemm_randomness']:
+            patches.append(self.no_random_kernels_patch)
         patch = '\n'.join(patches) if patches else None
         self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch, checkout=hpl_branch)
         self.nodes.run('make startup arch=SMPI', directory=self.hpl_dir)
@@ -250,6 +255,111 @@ index 35dea84..3803d8c 100644
      double sigma = 1.087202e-07 + 2.976703e-12*mnk + 8.365868e-12*mn + 1.528598e-10*mk + 9.931248e-11*nk;\
      double noise = random_halfnormal_shifted(0, sigma);\
      double injected_duration = raw_duration + noise;\
+    '''
+
+    no_random_kernels_patch = r'''
+diff --git a/src/blas/HPL_dgemm.c b/src/blas/HPL_dgemm.c
+index dd235b7..ab40276 100644
+--- a/src/blas/HPL_dgemm.c
++++ b/src/blas/HPL_dgemm.c
+@@ -204,14 +204,14 @@ double random_halfnormal_shifted(double exp, double std) {
+ }
+
+ void smpi_execute_normal(double mu, double sigma) {
+-    double coefficient = random_halfnormal_shifted(mu, sigma);
++    double coefficient = mu;
+     if(coefficient > 0) {
+         smpi_execute_benched(coefficient);
+     }
+ }
+
+ void smpi_execute_normal_size(double mu, double sigma, double size) {
+-    double coefficient = random_halfnormal_shifted(mu, sigma);
++    double coefficient = mu;
+     if(coefficient > 0 && size > 0) {
+         smpi_execute_benched(size * coefficient);
+     }
+    '''
+
+    no_hpl_kernels_patch = r'''
+diff --git a/src/auxil/HPL_dlacpy.c b/src/auxil/HPL_dlacpy.c
+index 70ccbce..0fd833b 100644
+--- a/src/auxil/HPL_dlacpy.c
++++ b/src/auxil/HPL_dlacpy.c
+@@ -342,8 +342,6 @@ void HPL_dlacpy
+ /*
+  * End of HPL_dlacpy
+  */
+-#else
+-   smpi_execute_normal_size(3.871806e-09, 1.328595e-09, ((double)M)*((double)N));
+ #endif // SMPI_OPTIMIZATION_LEVEL
+     timestamp_t duration = get_timestamp() - start;
+     record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+diff --git a/src/auxil/HPL_dlatcpy.c b/src/auxil/HPL_dlatcpy.c
+index 50d71eb..8bdca86 100644
+--- a/src/auxil/HPL_dlatcpy.c
++++ b/src/auxil/HPL_dlatcpy.c
+@@ -397,8 +397,6 @@ void HPL_dlatcpy
+ /*
+  * End of HPL_dlatcpy
+  */
+-#else
+-    smpi_execute_normal_size(4.893900e-09, 4.691039e-10, ((double)M)*N);
+ #endif // SMPI_OPTIMIZATION_LEVEL
+     timestamp_t duration = get_timestamp() - start;
+     record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+diff --git a/src/pauxil/HPL_dlaswp01T.c b/src/pauxil/HPL_dlaswp01T.c
+index dc0f8b3..e0d8879 100644
+--- a/src/pauxil/HPL_dlaswp01T.c
++++ b/src/pauxil/HPL_dlaswp01T.c
+@@ -251,8 +251,6 @@ void HPL_dlaswp01T
+ /*
+  * End of HPL_dlaswp01T
+  */
+-#else
+-    smpi_execute_normal_size(7.547639e-09, 1.371708e-09, ((double)M)*((double)N));
+ #endif // SMPI_OPTIMIZATION_LEVEL
+     timestamp_t duration = get_timestamp() - start;
+     record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+diff --git a/src/pauxil/HPL_dlaswp02N.c b/src/pauxil/HPL_dlaswp02N.c
+index ba461fc..d7345d9 100644
+--- a/src/pauxil/HPL_dlaswp02N.c
++++ b/src/pauxil/HPL_dlaswp02N.c
+@@ -204,8 +204,6 @@ void HPL_dlaswp02N
+ /*
+  * End of HPL_dlaswp02N
+  */
+-#else
+-    smpi_execute_normal_size(2.822241e-08, 5.497050e-09, ((double)M)*N);
+ #endif // SMPI_OPTIMIZATION_LEVEL
+     timestamp_t duration = get_timestamp() - start;
+     record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+diff --git a/src/pauxil/HPL_dlaswp03T.c b/src/pauxil/HPL_dlaswp03T.c
+index 8e54bfe..92c4665 100644
+--- a/src/pauxil/HPL_dlaswp03T.c
++++ b/src/pauxil/HPL_dlaswp03T.c
+@@ -185,8 +185,6 @@ void HPL_dlaswp03T
+ /*
+  * End of HPL_dlaswp03T
+  */
+-#else
+-    smpi_execute_normal_size(3.775240e-09, 2.968320e-10, ((double)M)*N);
+ #endif // SMPI_OPTIMIZATION_LEVEL
+     timestamp_t duration = get_timestamp() - start;
+     record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
+diff --git a/src/pauxil/HPL_dlaswp04T.c b/src/pauxil/HPL_dlaswp04T.c
+index 61dd638..8e05cf3 100644
+--- a/src/pauxil/HPL_dlaswp04T.c
++++ b/src/pauxil/HPL_dlaswp04T.c
+@@ -269,8 +269,6 @@ void HPL_dlaswp04T
+ /*
+  * End of HPL_dlaswp04T
+  */
+-#else
+-   smpi_execute_normal_size(8.498957e-09, 2.218070e-09, ((double)M1)*((double)N));
+ #endif // SMPI_OPTIMIZATION_LEVEL
+     timestamp_t duration = get_timestamp() - start;
+     record_measure("", 0, __func__, start, duration, 3, (int []){M0, M1, N});
     '''
 
     makefile_patch = '''
