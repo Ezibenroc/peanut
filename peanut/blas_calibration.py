@@ -9,7 +9,8 @@ class BLASCalibration(Job):
     all_op = ['dgemm', 'dtrsm']
     expfile_header_in_file = False
     expfile_header = ['operation', 'm', 'n', 'k']
-    installfile_types = {'warmup_time': int, 'multicore': bool, 'openblas': str}
+    installfile_types = {'warmup_time': int, 'multicore': bool, 'openblas': str,
+                         'remote_url': str, 'path_in_repo': str, 'token_path': str}
 
     @classmethod
     def check_exp(cls, exp):
@@ -78,7 +79,7 @@ class BLASCalibration(Job):
                 filename = 'result_monocore_%d.csv' % i
                 monocore_files.append(filename)
                 command = 'tmux new-session -d -s tmux_%d "OMP_NUM_THREADS=1' % i
-                command += ' %s %s %s -l 2 -o %s"' % (ldlib, numactl, cmd, filename)
+                command += ' %s %s %s -l 1 -o %s"' % (ldlib, numactl, cmd, filename)
                 self.nodes.run(command, directory=path)
             # Waiting for all the commands to be finished
             while True:

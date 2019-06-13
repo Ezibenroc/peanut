@@ -398,6 +398,10 @@ class Nodes:
         self.__set_idle_state(0)
 
 
+class GitError(Exception):
+    pass
+
+
 class Job:
     install_path = '~/.local/bin/peanut'
     expfile_types = {}
@@ -426,6 +430,7 @@ class Job:
     queues = collections.defaultdict(lambda: 'default', queues)
 
     def __init__(self, jobid, frontend, deploy=False):
+        self.start_time = time.time()
         self.jobid = jobid
         self.frontend = frontend
         if deploy and deploy not in self.deployment_images:
@@ -815,8 +820,61 @@ class Job:
         history = json.dumps(self.history, indent=2, sort_keys=True)
         self.add_content_to_archive(history, 'history.json')
 
+    def __commit_message(self):
+        msg = '[AUTOMATIC COMMIT] %s\n\n' % self.__class__.__name__
+        msg += 'user: %s\n' % self.user
+        msg += 'site: %s\n' % self.site
+        msg += 'cluster: %s\n' % self.cluster
+        msg += 'nodes: [%s]\n' % ','.join(self.hostnames)
+        msg += 'jobid: %d\n' % self.jobid
+        msg += 'deployment: %s\n' % self.deploy
+        msg += 'duration: %.0f seconds' % (time.time() - self.start_time)
+        return msg
+
+    def _git_push_archive(self, remote_url, path_in_repo, branch_name):
+        repository_path = self.director.run_unique('mktemp -d').stdout.strip()
+        # we purposely do not use the git_clone command, this repository should not be added in the info.yaml file
+        self.director.run('git clone %s %s' % (remote_url, repository_path))
+        self.director.run('git checkout -b %s' % branch_name, directory=repository_path)
+        self.director.run('mkdir -p %s' % path_in_repo, directory=repository_path)
+        self.director.run('cp %s %s' % (self.archive_name, os.path.join(repository_path, path_in_repo)))
+        self.director.run('git add .', directory=repository_path)
+        author = 'peanut <%s>' % self.director.hostnames[0]
+        self.director.run('git commit --author "%s" -m"$(echo -e "%s")"' % (author, self.__commit_message()),
+                          directory=repository_path)
+        self.director.run('git push --set-upstream origin %s' % branch_name, directory=repository_path)
+
+    def git_push_archive(self):
+        assert self.installfile is not None
+        install_options = self.installfile.content
+        remote_url = install_options['remote_url']
+        path_in_repo = install_options['path_in_repo']
+        token_path = install_options['token_path']
+        if not remote_url.startswith('https://'):
+            raise GitError('Invalid remote URL, can only clone with HTTPS (got %s)' % remote_url)
+        try:
+            with open(token_path) as f:
+                token = f.read().strip()
+        except FileNotFoundError:
+            raise GitError('Could not find token file %s' % token_path)
+        # https://stackoverflow.com/a/29570677/4110059
+        remote_url = 'https://oauth2:%s@%s' % (token, remote_url[8:])
+        branch_name = 'exp_%d' % self.jobid
+        self._git_push_archive(remote_url, path_in_repo, branch_name)
+
     def get_archive(self):
-        self.director.get(self.archive_name, self.archive_name)
+        #  If an installfile with a remote_url is specified, try to push the archive.
+        #  Otherwise (or if the push fails), copy the archive locally.
+        try:
+            self.installfile.content['remote_url']
+        except (AttributeError, KeyError):
+            self.director.get(self.archive_name, self.archive_name)
+        else:
+            try:
+                self.git_push_archive()
+            except GitError as e:
+                logger.warning(e)
+                self.director.get(self.archive_name, self.archive_name)
 
     def send_key(self):
         if not self.deploy:  # no need for that if this is not a fresh deploy
@@ -1028,7 +1086,6 @@ class Job:
 
     @classmethod
     def _main_run(cls, args):
-        start = time.time()
         logger.info('Starting a new job, args = %s' % args)
         job = cls.job_from_args(args)
         if args['batch']:
@@ -1041,7 +1098,7 @@ class Job:
             job.run_exp()
             logger.info('Tearing down')
             job.teardown()
-        logger.info('Total time: %.2f seconds' % (time.time() - start))
+        logger.info('Total time: %.0f seconds' % (time.time() - job.start_time))
 
     @classmethod
     def generate_batch_command(cls, args, site):
