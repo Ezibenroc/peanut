@@ -500,6 +500,13 @@ class Job:
             raise ValueError('No jobs were found for user %s on site %s' % (username, site))
         return jobs
 
+    def set_expfile(self, filename):
+        self.expfile = [ExpFile(filename=filename, types=self.expfile_types, header=self.expfile_header,
+                                header_in_file=self.expfile_header_in_file)]
+
+    def set_installfile(self, filename):
+        self.installfile = InstallFile(filename=filename, types=self.installfile_types)
+
     def __find_hostnames(self):
         sleep_time = 5
         while True:
