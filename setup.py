@@ -44,7 +44,7 @@ if __name__ == '__main__':
             sys.exit(e)
     setup(name='peanut',
           version=VERSION,
-          description='Simple implementation of model trees.',
+          description="Experiment engine for Grid'5000",
           author='Tom Cornebize',
           author_email='tom.cornebize@gmail.com',
           packages=['peanut'],
