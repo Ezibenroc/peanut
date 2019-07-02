@@ -210,6 +210,16 @@ class Nodes:
 
     @property
     def cores(self):
+        cores = {}
+        keys = list(self.cores_full[0].keys())
+        for PU, info in self.cores_full.items():
+            cores[tuple(info[k] for k in keys if k != 'PU')] = []
+        for PU, info in self.cores_full.items():
+            cores[tuple(info[k] for k in keys if k != 'PU')].append(PU)
+        return list(cores.values())
+
+    @property
+    def cores_full(self):
         try:
             return self.__cores
         except AttributeError:
@@ -240,7 +250,7 @@ class Nodes:
         ref_cores = None
         all_xml = self.__get_platform_xml()
         for node, xml in all_xml.items():
-            cores = self.__get_all_cores(xml)
+            cores = self.get_all_cores(xml)
             if ref_cores is None:
                 ref_cores = cores
                 ref_node = node
@@ -248,9 +258,11 @@ class Nodes:
                 raise ValueError('Got different topologies for nodes %s and %s' % (ref_node.host, node.host))
         return ref_cores
 
-    def __get_all_cores(self, xml):
+    @classmethod
+    def get_all_cores(cls, xml):
         xml = xml.findall('object')[0]
-        return self.__process_cache(xml)
+        result = cls.__process_cache(xml, {})
+        return {info['PU']: info for info in result}
 
     def __get_platform_xml(self):
         result = self.run('lstopo -f topology.xml && cat topology.xml')
@@ -259,22 +271,29 @@ class Nodes:
             xml[node] = lxml.etree.fromstring(output.stdout.encode('utf8'))
         return xml
 
-    def __process_cache(self, xml):
+    @classmethod
+    def __process_cache(cls, xml, info):
+        if 'cache' not in xml.get('type').lower():
+            info[xml.get('type')] = int(xml.get('os_index'))
         cache = xml.findall('object')
         result = []
         for obj in cache:
             if obj.get('type') == 'Core':
-                result.append(self.__process_core(obj))
+                result.extend(cls.__process_core(obj, dict(info)))
             elif obj.get('type') in ('Machine', 'NUMANode', 'Package', 'Cache', 'L3Cache',
                                      'L2Cache', 'L1Cache', 'L1iCache'):
-                result.extend(self.__process_cache(obj))
+                result.extend(cls.__process_cache(obj, dict(info)))
         return result
 
-    def __process_core(self, xml):
+    @classmethod
+    def __process_core(cls, xml, info):
+        info[xml.get('type')] = int(xml.get('os_index'))
         result = []
         for pu in xml.findall('object'):
             assert pu.get('type') == 'PU'
-            result.append(int(pu.get('os_index')))
+            tmp = dict(info)
+            tmp[pu.get('type')] = int(pu.get('os_index'))
+            result.append(tmp)
         return result
 
     @property
