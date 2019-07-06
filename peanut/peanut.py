@@ -850,10 +850,23 @@ class Job:
         msg += 'duration: %.0f seconds' % (time.time() - self.start_time)
         return msg
 
-    def _git_push_archive(self, remote_url, path_in_repo, branch_name):
+    def _git_push_archive(self, remote_url, path_in_repo, branch_name, max_tentatives=5):
         repository_path = self.director.run_unique('mktemp -d').stdout.strip()
         # we purposely do not use the git_clone command, this repository should not be added in the info.yaml file
-        self.director.run('git clone %s %s' % (remote_url, repository_path))
+        nb_tentatives = 0
+        sleep_time = 15
+        while True:
+            try:
+                nb_tentatives += 1
+                self.director.run('git clone --depth 1 %s %s' % (remote_url, repository_path))
+            except RunError as e:
+                if nb_tentatives == max_tentatives:
+                    raise GitError('Git clone failed\n%s' % e)
+                t = random.uniform(sleep_time*2**nb_tentatives, sleep_time*2**(nb_tentatives+1))
+                logger.warning('Previous command failed, sleeping for %.2e seconds' % t)
+                time.sleep(t)
+            else:
+                break
         self.director.run('git checkout -b %s' % branch_name, directory=repository_path)
         self.director.run('mkdir -p %s' % path_in_repo, directory=repository_path)
         self.director.run('cp %s %s' % (self.archive_name, os.path.join(repository_path, path_in_repo)))
@@ -861,7 +874,18 @@ class Job:
         author = 'peanut <%s>' % self.director.hostnames[0]
         self.director.run('git commit --author "%s" -m"$(echo -e "%s")"' % (author, self.__commit_message()),
                           directory=repository_path)
-        self.director.run('git push --set-upstream origin %s' % branch_name, directory=repository_path)
+        while True:
+            try:
+                nb_tentatives += 1
+                self.director.run('git push --set-upstream origin %s' % branch_name, directory=repository_path)
+            except RunError as e:
+                if nb_tentatives == max_tentatives:
+                    raise GitError('Git push failed\n%s' % e)
+                t = random.uniform(sleep_time*2**nb_tentatives, sleep_time*2**(nb_tentatives+1))
+                logger.warning('Previous command failed, sleeping for %.2e seconds' % t)
+                time.sleep(t)
+            else:
+                break
 
     def git_push_archive(self):
         assert self.installfile is not None
