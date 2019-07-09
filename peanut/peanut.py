@@ -19,6 +19,7 @@ import copy
 import argparse
 import lxml.etree
 import csv
+import hashlib
 from .version import __version__, __git_version__
 
 handler = colorlog.StreamHandler()
@@ -196,7 +197,26 @@ class Nodes:
         self.put(tmp_file.name, target_file)
         tmp_file.close()
 
-    def write_files(self, content, *target_files):
+    def write_files(self, content, *target_files, avoid_copy=False):
+        if avoid_copy:
+            hash_origin = hashlib.sha512(content.encode()).hexdigest()
+            try:
+                hash_target = self.run_unique('sha512sum %s' % ' '.join(target_files)).stdout.strip()
+                all_hashes = set()
+                for target in hash_target.split('\n'):
+                    h, f = target.split()
+                    all_hashes.add(h.strip())
+                if len(all_hashes) != 1:
+                    hash_target = ''
+                else:
+                    hash_target = all_hashes.pop()
+            except RunError:
+                hash_target = ''
+            if hash_target == hash_origin:
+                logger.info('File(s) already available on node: %s' % ' '.join(target_files))
+                return
+            else:
+                logger.info('File(s) not available on node, need to copy: %s' % ' '.join(target_files))
         target_files = [os.path.join(self.working_dir, target) for target in target_files]
         if len(content) < 80:  # arbitrary threshold...
             cmd = "echo -n '%s' | tee %s" % (content, ' '.join(target_files))
@@ -1067,9 +1087,9 @@ class Job:
             script = cls.generate_batch_command(args, site)
             cls._check_install(frontend)
             for f in expfile:
-                frontend.write_files(f.raw_content, f.basename)
+                frontend.write_files(f.raw_content, f.basename, avoid_copy=True)
             if installfile:
-                frontend.write_files(installfile.raw_content, installfile.basename)
+                frontend.write_files(installfile.raw_content, installfile.basename, avoid_copy=True)
         else:
             script = None
         if 'cluster' in args:
