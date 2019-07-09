@@ -5,6 +5,8 @@ from .abstract_hpl import AbstractHPL
 
 
 class HPL(AbstractHPL):
+    installfile_types = {'warmup_time': int,
+                         **AbstractHPL.installfile_types}
     def install_akypuera(self):
         self.git_clone('https://github.com/Ezibenroc/akypuera.git', 'akypuera', recursive=True,
                        patch=self.akypuera_patch)
@@ -23,6 +25,7 @@ class HPL(AbstractHPL):
             'openmpi-bin',
             'libopenmpi-dev',
             'net-tools',
+            'stress',
         )
         if install_options['trace_execution']:
             self.apt_install('pajeng')
@@ -55,6 +58,10 @@ class HPL(AbstractHPL):
         assert self.installfile is not None
         install_options = self.installfile.content
         nb_cores = len(self.nodes.cores)
+        warmup = install_options['warmup_time']
+        if warmup > 0:
+            cmd = 'stress -c %d -t %ds' % (4*nb_cores, warmup)
+            self.nodes.run(cmd)
         results = []
         start = time.time()
         assert len(self.expfile) == 1
