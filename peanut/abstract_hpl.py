@@ -118,16 +118,16 @@ class AbstractHPL(Job):
         return designs
 
     @classmethod
-    def gen__exp(cls):
+    def gen_exp(cls):
         factors = dict(cls.expfile_sets)
-        factors['matrix_size'] = [2**15]
-        factors['block_size'] = [2**n for n in range(7, 10)]
-        factors['proc_p'] = [16, 32]
-        factors['proc_q'] = [16, 32]
+        factors['matrix_size'] = [100000]
+        factors['block_size'] = [2**n for n in range(7, 9)]
+        factors['proc_p'] = [32]
+        factors['proc_q'] = [32]
         factors['process_per_node'] = [32]
         factors['thread_per_process'] = [1]
+        factors['mem_align'] = [8]
         exp = cls.fact_design(factors)
-        exp = [e for e in exp if e['proc_p'] * e['proc_q'] == 16*32]
         random.shuffle(exp)
         return exp
 
@@ -148,7 +148,7 @@ class AbstractHPL(Job):
         return exp
 
     @classmethod
-    def gen_exp(cls):
+    def gen__exp(cls):
         factors = dict(cls.expfile_sets)
 #        factors['matrix_size'] = [2**i for i in range(14, 19)]
 #        factors['matrix_size'] += [s + s//2 for s in factors['matrix_size'][:-1]]
