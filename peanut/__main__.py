@@ -10,6 +10,7 @@ from .stress_test import StressTest
 from .version import __version__, __git_version__
 from .smpi_hpl import SMPIHPL
 from .frequency_get import FrequencyGet
+from .sw4lite import SW4lite
 
 classes = [
     MPICalibration,
@@ -18,7 +19,8 @@ classes = [
     StressTest,
     HPL,
     SMPIHPL,
-    FrequencyGet
+    FrequencyGet,
+    SW4lite,
 ]
 
 entry_points = {cls.__name__: cls.main for cls in classes}
