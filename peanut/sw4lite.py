@@ -1,3 +1,4 @@
+import os
 import time
 from .peanut import Job, logger, RunError
 
@@ -8,6 +9,7 @@ class SW4lite(Job):
         super().setup()
         self.apt_install(
             'build-essential',
+            'linux-tools',
             'gfortran',
             'python3',
             'python3-dev',
@@ -48,6 +50,7 @@ class SW4lite(Job):
                 time.sleep(1)
             else:
                 break
+        self.git_clone('https://github.com/brendangregg/FlameGraph.git', 'FlameGraph')
         return self
 
     def run_exp(self):
@@ -63,8 +66,14 @@ class SW4lite(Job):
         self.nodes.write_files('\n'.join(self.hostnames), 'sw4lite_smpi/optimize/hosts.txt')
         self.nodes.write_files(platform.raw_content, 'sw4lite_smpi/optimize/platform.xml')
         cmd = 'smpirun -np %d -hostfile ./hosts.txt -platform ./platform.xml --cfg=smpi/display-timing:yes ' % nb
+        cmd += '-wrapper "perf record -F1000 --call-graph dwarf" --cfg=smpi/keep-temps:true '
         cmd += './sw4lite ../tests/pointsource/pointsource.in'
         simulation = self.director.run_unique(cmd, directory='sw4lite_smpi/optimize')
+        flamedir = os.path.join(self.nodes.working_dir, 'FlameGraph')
+        cmd = 'perf script | {0}/stackcollapse-perf.pl --kernel | {0}/flamegraph.pl > flame_graph.svg'
+        cmd = cmd.format(flamedir)
+        self.director.run_unique(cmd, directory='sw4lite_smpi/optimize')
+        self.add_local_to_archive('sw4lite_smpi/optimize/flame_graph.svg')
         self.add_content_to_archive(reality.stdout, 'result_reality.stdout')
         self.add_content_to_archive(reality.stderr, 'result_reality.stderr')
         self.add_content_to_archive(simulation.stdout, 'result_simulation.stdout')
