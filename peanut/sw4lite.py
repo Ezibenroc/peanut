@@ -66,11 +66,11 @@ class SW4lite(Job):
         self.nodes.write_files('\n'.join(self.hostnames), 'sw4lite_smpi/optimize/hosts.txt')
         self.nodes.write_files(platform.raw_content, 'sw4lite_smpi/optimize/platform.xml')
         cmd = 'smpirun -np %d -hostfile ./hosts.txt -platform ./platform.xml --cfg=smpi/display-timing:yes ' % nb
-        cmd += '-wrapper "perf record -F1000 --call-graph dwarf" --cfg=smpi/keep-temps:true '
+        cmd += '-wrapper "perf record -F 1000 --call-graph dwarf --output perf.data" --cfg=smpi/keep-temps:true '
         cmd += './sw4lite ../tests/pointsource/pointsource.in'
         simulation = self.director.run_unique(cmd, directory='sw4lite_smpi/optimize')
         flamedir = os.path.join(self.nodes.working_dir, 'FlameGraph')
-        cmd = 'perf script | {0}/stackcollapse-perf.pl --kernel | {0}/flamegraph.pl > flame_graph.svg'
+        cmd = 'perf script --input perf.data | {0}/stackcollapse-perf.pl --kernel | {0}/flamegraph.pl > flame_graph.svg'
         cmd = cmd.format(flamedir)
         self.director.run_unique(cmd, directory='sw4lite_smpi/optimize')
         self.add_local_to_archive('sw4lite_smpi/optimize/flame_graph.svg')
