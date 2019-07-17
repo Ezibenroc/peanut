@@ -1,6 +1,7 @@
 import itertools
 import random
 import time
+import itertools
 from .peanut import Job, logger, RunError
 
 
@@ -97,26 +98,47 @@ class BLASCalibration(Job):
         self.add_local_to_archive(path + '/result.csv')
 
     @classmethod
-    def gen_exp(cls):
-        max_size = 4000
-        exp = []
-        for _ in range(60):
-            m = random.randint(1, max_size)
-            n = random.randint(1, max_size)
-            k = random.randint(1, max_size)
-            for op in cls.all_op:
-                exp.append({'operation': op, 'm': m, 'n': n, 'k': k})
-        for _ in range(30):
-            big_sizes = [random.randint(1, max_size*4) for _ in range(2)]
-            small_size = random.randint(1, max_size//16)
-            exp.append({'operation': 'dgemm', 'm': big_sizes[0], 'n': big_sizes[1], 'k': small_size})
-            exp.append({'operation': 'dgemm', 'm': big_sizes[0], 'n': small_size, 'k': big_sizes[1]})
-            exp.append({'operation': 'dgemm', 'm': small_size, 'n': big_sizes[0], 'k': big_sizes[1]})
-            exp.append({'operation': 'dtrsm', 'm': big_sizes[0], 'n': small_size, 'k': -1})
-            exp.append({'operation': 'dtrsm', 'm': small_size, 'n': big_sizes[0], 'k': -1})
-        for e in exp:
-            if e['operation'] == 'dtrsm':
-                e['k'] = -1
-        exp *= 3
-        random.shuffle(exp)
-        return exp
+    def gen_exp(cls, max_prod=int(1e10), max_size=15500):
+
+        def get_sizes(N, target_product):
+            '''
+            Return a list of N random sizes such that their product is close to the target
+            (would be exactly the target without the rounding).
+            '''
+            if N == 1:
+                return [target_product]
+            s = round(random.uniform(1, target_product**(1/N)))
+            return [s] + get_sizes(N-1, round(target_product/s))
+
+        def get_sizes_limit(N, target_product, max_size):
+            '''
+            Return a list of N random sizes such that their product is close to the target
+            and no size is larger than the limit.
+            '''
+            while True:
+                sizes = get_sizes(N, target_product)
+                if all(i <= max_size for i in sizes):
+                    return sizes
+
+        def get_batch(nb_batch, N, target_product, max_size):
+            '''
+            Return a list of nb_batch * N! lists.
+            '''
+            result = []
+            for i in range(nb_batch):
+                result.extend(itertools.permutations(get_sizes_limit(N, target_product, max_size)))
+            return result
+
+        products = random.sample(range(1, int(max_prod)), 30)
+        products = list(range(max_prod, 10, -max_prod//30))
+        for i in range(len(products)):
+            products[i] += random.randint(-max_prod//1000, max_prod//1000)
+        sizes = []
+        for prod in products:
+            sizes.extend(get_batch(3, 3, prod, max_size))
+        # Adding special sizes
+        sizes.append((2048, 2048, 2048))
+        for i in range(1, 5):
+            sizes.append((i, i, i))
+        random.shuffle(sizes)
+        return [{'operation': 'dgemm', 'm': m, 'n': n, 'k': k} for (m, n, k) in sizes]
