@@ -5,7 +5,7 @@ from .abstract_hpl import AbstractHPL
 
 
 class HPL(AbstractHPL):
-    installfile_types = {'warmup_time': int,
+    installfile_types = {'warmup_time': int, 'trace_dgemm': bool,
                          **AbstractHPL.installfile_types}
     def install_akypuera(self):
         self.git_clone('https://github.com/Ezibenroc/akypuera.git', 'akypuera', recursive=True,
@@ -34,6 +34,9 @@ class HPL(AbstractHPL):
         self.nodes.run('tar -xvf hpl-2.2.tar.gz')
         if install_options['trace_execution']:
             self.nodes.write_files(self.patch, self.hpl_dir + '/patch.diff')
+            self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
+        if install_options['trace_dgemm'] and not install_options['trace_execution']:
+            self.nodes.write_files(self.trace_dgemm_patch, self.hpl_dir + '/patch.diff')
             self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
         if install_options['terminate_early']:
             self.nodes.write_files(self.hpl_early_termination_patch, self.hpl_dir + '/patch.diff')
@@ -99,10 +102,8 @@ class HPL(AbstractHPL):
             if install_options['trace_execution']:
                 self.director.run('ls -l rastro-*rst', directory=self.hpl_dir+'/bin/Debian')
                 rstdir = os.path.join(self.orchestra.working_dir, self.hpl_dir, 'bin/Debian/rastro-*.rst')
-                blasdir = os.path.join(self.orchestra.working_dir, self.hpl_dir, 'bin/Debian/blas*trace')
                 for node in self.orchestra.hostnames:
                     self.director.run("rsync -a '%s:%s' ." % (node, rstdir), directory=self.hpl_dir+'/bin/Debian')
-                    self.director.run("rsync -a '%s:%s' ." % (node, blasdir), directory=self.hpl_dir+'/bin/Debian')
                 converter = os.path.join(self.akypuera_dir, 'aky_converter')
                 paje_file = os.path.join(self.director.working_dir, 'trace_%d.paje' % i)
                 self.director.run('ls -l rastro-*rst', directory=self.hpl_dir+'/bin/Debian')
@@ -113,12 +114,16 @@ class HPL(AbstractHPL):
                     self.director.run('%s --no-links rastro-*rst > %s' % (converter, paje_file),
                                       directory=self.hpl_dir+'/bin/Debian')
                 mpi_trace = 'trace_mpi_%d.csv' % i
-                blas_trace = os.path.join(self.director.working_dir, 'trace_blas_%d.csv' % i)
                 self.director.run('pj_dump -u %s | grep -v MPI_Iprobe > %s' % (paje_file, mpi_trace))
                 self.nodes.run('rm -f rastro-*rst', directory=self.hpl_dir+'/bin/Debian')
+                self.add_local_to_archive(mpi_trace)
+            if install_options['trace_execution'] or install_options['trace_dgemm']:
+                blasdir = os.path.join(self.orchestra.working_dir, self.hpl_dir, 'bin/Debian/blas*trace')
+                for node in self.orchestra.hostnames:
+                    self.director.run("rsync -a '%s:%s' ." % (node, blasdir), directory=self.hpl_dir+'/bin/Debian')
+                blas_trace = os.path.join(self.director.working_dir, 'trace_blas_%d.csv' % i)
                 self.director.run('cat blas*trace > %s' % blas_trace, directory=self.hpl_dir+'/bin/Debian')
                 self.nodes.run('rm -f blas*trace', directory=self.hpl_dir+'/bin/Debian')
-                self.add_local_to_archive(mpi_trace)
                 self.add_local_to_archive(blas_trace)
             total_time, gflops, residual = self.parse_hpl(output.stdout)
             new_res = dict(exp)
