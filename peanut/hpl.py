@@ -170,9 +170,122 @@ index 47feb15..5b2e4e5 100644
 
 '''
 
-    @property
-    def patch(self):
-        return r'''
+    trace_functions_patch = r'''
+diff --git a/src/blas/HPL_dgemm.c b/src/blas/HPL_dgemm.c
+index f27888a..7c6b73f 100644
+--- a/src/blas/HPL_dgemm.c
++++ b/src/blas/HPL_dgemm.c
+@@ -48,6 +48,74 @@
+  * Include files
+  */
+ #include "hpl.h"
++#include "unistd.h"
++#if _POSIX_TIMERS
++#include <time.h>
++#define HAVE_CLOCKGETTIME 1
++#else
++#include <sys/time.h>
++#define HAVE_GETTIMEOFDAY 1
++#endif
++
++FILE *get_measure_file() {
++    static FILE *measure_file=NULL;
++    if(!measure_file) {
++        int my_rank;
++        char filename[50];
++        MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
++        sprintf (filename, "blas_%d.trace", my_rank);
++        measure_file=fopen(filename, "w");
++        if(!measure_file) {
++            fprintf(stderr, "Error opening file %s\n", filename);
++            exit(1);
++        }
++    }
++    return measure_file;
++}
++
++
++#ifdef HAVE_CLOCKGETTIME
++#define PRECISION 1000000000.0
++#elif HAVE_GETTIMEOFDAY
++#define PRECISION 1000000.0
++#else
++#define PRECISION 1
++#endif
++
++timestamp_t get_time(){
++#ifdef HAVE_CLOCKGETTIME
++    struct timespec tp;
++    clock_gettime (CLOCK_REALTIME, &tp);
++    return (tp.tv_sec * 1000000000 + tp.tv_nsec);
++#elif HAVE_GETTIMEOFDAY
++    struct timeval tv;
++    gettimeofday (&tv, NULL);
++    return (tv.tv_sec * 1000000 + tv.tv_usec)*1000;
++#endif
++}
++
++timestamp_t get_timestamp(void) {
++    static timestamp_t start = 0;
++    if(start == 0) {
++        start = get_time();
++        return 0;
++    }
++    return get_time() - start;
++}
++
++void record_measure(const char *file, int line, const char *function, timestamp_t start, timestamp_t duration, int n_args, int *args) {
++    static int my_rank = -1;
++    if(my_rank < 0) {
++        MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
++    }
++    FILE *measure_file = get_measure_file();
++    if(!measure_file) {fprintf(stderr, "error with measure_file\n"); exit(1);}
++    fprintf(measure_file, "%s, %d, %s, %d, %e, %e", file, line, function, my_rank, start/PRECISION, duration/PRECISION);
++    for(int i = 0; i < n_args; i++) {
++        fprintf(measure_file, ", %d", args[i]);
++    }
++    fprintf(measure_file, "\n");
++}
+
+ #ifndef HPL_dgemm
+
+    '''
+
+    trace_dgemm_patch = trace_functions_patch + r'''
+diff --git a/include/hpl_blas.h b/include/hpl_blas.h
+index 41e5afd..5350ea5 100644
+--- a/include/hpl_blas.h
++++ b/include/hpl_blas.h
+@@ -169,11 +169,23 @@ STDC_ARGS(
+ #define    HPL_dtrsv           cblas_dtrsv
+ #define    HPL_dger            cblas_dger
+
+-#define    HPL_dgemm           cblas_dgemm
+ #define    HPL_dtrsm           cblas_dtrsm
+
++
+ #endif
+
++FILE *get_measure_file();
++typedef unsigned long long timestamp_t;
++timestamp_t get_timestamp(void);
++void record_measure(const char *file, int line, const char *function, timestamp_t start, timestamp_t duration, int n_args, int *args);
++
++#define  HPL_dgemm(layout, TransA, TransB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc)  ({\
++    timestamp_t start = get_timestamp();\
++    cblas_dgemm(layout, TransA, TransB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc);\
++    timestamp_t duration = get_timestamp() - start;\
++    if(M > 0 && N > 0 && K > 0) record_measure(__FILE__, __LINE__, "dgemm", start, duration, 3, (int []){M, N, K});\
++})
++
+ #ifdef HPL_CALL_FBLAS
+ /*
+  * ---------------------------------------------------------------------
+
+    '''
+
+    patch = trace_functions_patch + r'''
 diff --git a/include/hpl_blas.h b/include/hpl_blas.h
 index 41e5afd..f52e826 100644
 --- a/include/hpl_blas.h
@@ -306,85 +419,6 @@ index 7643676..eb84bea 100644
 +    timestamp_t duration = get_timestamp() - start;
 +    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
-diff --git a/src/blas/HPL_dgemm.c b/src/blas/HPL_dgemm.c
-index f27888a..7c6b73f 100644
---- a/src/blas/HPL_dgemm.c
-+++ b/src/blas/HPL_dgemm.c
-@@ -48,6 +48,74 @@
-  * Include files
-  */
- #include "hpl.h"
-+#include "unistd.h"
-+#if _POSIX_TIMERS
-+#include <time.h>
-+#define HAVE_CLOCKGETTIME 1
-+#else
-+#include <sys/time.h>
-+#define HAVE_GETTIMEOFDAY 1
-+#endif
-+
-+FILE *get_measure_file() {
-+    static FILE *measure_file=NULL;
-+    if(!measure_file) {
-+        int my_rank;
-+        char filename[50];
-+        MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-+        sprintf (filename, "blas_%d.trace", my_rank);
-+        measure_file=fopen(filename, "w");
-+        if(!measure_file) {
-+            fprintf(stderr, "Error opening file %s\n", filename);
-+            exit(1);
-+        }
-+    }
-+    return measure_file;
-+}
-+
-+
-+#ifdef HAVE_CLOCKGETTIME
-+#define PRECISION 1000000000.0
-+#elif HAVE_GETTIMEOFDAY
-+#define PRECISION 1000000.0
-+#else
-+#define PRECISION 1
-+#endif
-+
-+timestamp_t get_time(){
-+#ifdef HAVE_CLOCKGETTIME
-+    struct timespec tp;
-+    clock_gettime (CLOCK_REALTIME, &tp);
-+    return (tp.tv_sec * 1000000000 + tp.tv_nsec);
-+#elif HAVE_GETTIMEOFDAY
-+    struct timeval tv;
-+    gettimeofday (&tv, NULL);
-+    return (tv.tv_sec * 1000000 + tv.tv_usec)*1000;
-+#endif
-+}
-+
-+timestamp_t get_timestamp(void) {
-+    static timestamp_t start = 0;
-+    if(start == 0) {
-+        start = get_time();
-+        return 0;
-+    }
-+    return get_time() - start;
-+}
-+
-+void record_measure(const char *file, int line, const char *function, timestamp_t start, timestamp_t duration, int n_args, int *args) {
-+    static int my_rank = -1;
-+    if(my_rank < 0) {
-+        MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-+    }
-+    FILE *measure_file = get_measure_file();
-+    if(!measure_file) {fprintf(stderr, "error with measure_file\n"); exit(1);}
-+    fprintf(measure_file, "%s, %d, %s, %d, %e, %e", file, line, function, my_rank, start/PRECISION, duration/PRECISION);
-+    for(int i = 0; i < n_args; i++) {
-+        fprintf(measure_file, ", %d", args[i]);
-+    }
-+    fprintf(measure_file, "\n");
-+}
-
- #ifndef HPL_dgemm
-
 diff --git a/src/pauxil/HPL_dlaswp00N.c b/src/pauxil/HPL_dlaswp00N.c
 index 60ae8b1..72952e3 100644
 --- a/src/pauxil/HPL_dlaswp00N.c
