@@ -597,7 +597,7 @@ class Job:
 
     @classmethod
     def oarsub(cls, frontend, constraint, walltime, nb_nodes, *,
-               deploy=False, queue=None, script=None):
+               deploy=False, queue=None, script=None, container=None):
         name = random.choice('☕🥐')
         constraint = '%s/nodes=%d,walltime=%s' % (
             constraint, nb_nodes, walltime)
@@ -609,6 +609,8 @@ class Job:
         else:
             date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             cmd += ' -r "%s"' % date
+        if container:
+            cmd += ' -t inner=%d' % container
         result = frontend.run_unique(cmd)
         regex = re.compile('OAR_JOB_ID=(\d+)')
         jobid = int(regex.search(result.stdout).groups()[0])
@@ -616,13 +618,13 @@ class Job:
 
     @classmethod
     def oarsub_cluster(cls, username, cluster, walltime, nb_nodes, *,
-                       deploy=False, script=None):
+                       deploy=False, script=None, container=None):
         site = cls.sites[cluster]
         queue = cls.queues[cluster]
         frontend = cls.g5k_frontend(site, username)
         constraint = "{cluster in ('%s')}" % cluster
         return cls.oarsub(frontend, constraint, walltime, nb_nodes, deploy=deploy,
-                          queue=queue, script=script)
+                          queue=queue, script=script, container=container)
 
     @classmethod
     def _check_hostnames(cls, hostnames):
@@ -635,7 +637,7 @@ class Job:
 
     @classmethod
     def oarsub_hostnames(cls, username, hostnames, walltime, nb_nodes=None, *,
-                         deploy=False, script=None):
+                         deploy=False, script=None, container=None):
         cluster = cls._check_hostnames(hostnames)
         site = cls.sites[cluster]
         queue = cls.queues[cluster]
@@ -645,7 +647,7 @@ class Job:
         if nb_nodes is None:
             nb_nodes = len(hostnames)
         return cls.oarsub(frontend, constraint, walltime, nb_nodes, deploy=deploy,
-                          queue=queue, script=script)
+                          queue=queue, script=script, container=container)
 
     @classmethod
     def g5k_connection(cls, site, username):
@@ -1006,6 +1008,7 @@ class Job:
         group.add_argument('--jobid', help='Job ID for the experiment, of the form site:ID.', type=cls.parse_jobid)
         sp_run.add_argument('--walltime', help='Duration of the experiment.', type=Time.parse, default=Time(hours=1))
         sp_run.add_argument('--nbnodes', help='Number of nodes for the experiment.', type=positive_int, default=1)
+        sp_run.add_argument('--container', help='Container job for this sub-job.', type=positive_int, default=None)
         sp_run.add_argument('--expfile', help='File which describes the experiment.',
                             nargs='+', type=lambda f: ExpFile(filename=f, types=cls.expfile_types,
                                                               header=cls.expfile_header,
@@ -1092,12 +1095,16 @@ class Job:
                 frontend.write_files(installfile.raw_content, installfile.basename, avoid_copy=True)
         else:
             script = None
+        try:
+            container = args['container']
+        except KeyError:
+            container = None
         if 'cluster' in args:
             job = cls.oarsub_cluster(user, cluster=cluster, walltime=args['walltime'], nb_nodes=args['nbnodes'],
-                                     deploy=deploy, script=script)
+                                     deploy=deploy, script=script, container=container)
         elif 'nodes' in args:
             job = cls.oarsub_hostnames(user, hostnames=hostnames, walltime=args['walltime'],
-                                       nb_nodes=args['nbnodes'], deploy=deploy, script=script)
+                                       nb_nodes=args['nbnodes'], deploy=deploy, script=script, container=container)
         else:
             job = cls(jobid, frontend, deploy=deploy)
         job.expfile = expfile
