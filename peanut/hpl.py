@@ -82,18 +82,30 @@ class HPL(AbstractHPL):
             if nb_proc != nb_hpl_proc:
                 msg = 'Requested %d*%d=%d processes for HPL, but the total number of processes is %d*%d=%d'
                 logger.warning(msg % (proc_p, proc_q, nb_hpl_proc, len(self.hostnames), process_per_node, nb_proc))
-            hostnames = [host for host in self.hostnames for _ in range(process_per_node)]
-            hosts = ','.join(hostnames)
+            nb_ranks = max(nb_hpl_proc, nb_proc)
+            mapping = []
+            for rank in range(nb_ranks):
+                host = self.hostnames[rank // process_per_node]
+                core = rank % process_per_node
+                mapping.append('rank %d=%s slot=%d' % (rank, host, core))
+            mapping = '\n'.join(mapping)
+            hosts = '\n'.join('%s slots=%d' % (host, process_per_node) for host in self.hostnames)
+            hostfile = os.path.join('/tmp/hosts.txt')
+            rankfile = os.path.join('/tmp/ranks.txt')
+            self.nodes.write_files(hosts, hostfile)
+            self.nodes.write_files(mapping, rankfile)
             hpl_file = self.generate_hpl_file(**exp)
             self.nodes.write_files(hpl_file, os.path.join(self.hpl_dir, 'bin/Debian/HPL.dat'))
-            cmd = 'mpirun --allow-run-as-root --bind-to none --timestamp-output -np %d -x OMP_NUM_THREADS=%d -H %s'
+            cmd = 'mpirun --allow-run-as-root --report-bindings --timestamp-output -np %d -x OMP_NUM_THREADS=%d'
+            cmd += ' -hostfile %s' % hostfile
+            cmd += ' --rankfile %s' % rankfile
             cmd += ' -x LD_LIBRARY_PATH=/tmp/lib'
             if install_options['trace_execution']:
                 lib = os.path.join(self.akypuera_dir, 'libaky.so')
                 cmd += ' -x LD_PRELOAD=%s' % lib
                 cmd = 'LD_PRELOAD=%s %s' % (lib, cmd)
             cmd += ' ./xhpl'
-            cmd = cmd % (max(nb_hpl_proc, nb_proc), thread_per_process, hosts)
+            cmd = cmd % (nb_ranks, thread_per_process)
             self.register_temperature()
             start_timestamp = self.get_timestamp()
             output = self.director.run_unique(cmd, directory=self.hpl_dir+'/bin/Debian')
