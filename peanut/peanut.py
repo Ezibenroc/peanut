@@ -577,7 +577,13 @@ class Job:
         assert self.deploy
         env = env or self.deploy
         self.hostnames
-        self.frontend.run('kadeploy3 -k -f %s -e %s --env-version %s' % (self.oar_node_file, env, env_version))
+        while True:
+            try:
+                self.frontend.run('kadeploy3 -k -f %s -e %s --env-version %s' % (self.oar_node_file, env, env_version))
+            except RunError:
+                time.sleep(random.uniform(30, 60))
+            else:
+                break
         return self
 
     def __repr__(self):
