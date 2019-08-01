@@ -5,3 +5,4 @@ build
 dist
 *.egg-info
 peanut/version.py
+__pycache__

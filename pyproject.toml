@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "peanut"
+version = "0.0.0"
+description = "Experiment engine for Grid'5000"
+authors = ["Tom Cornebize <tom.cornebize@univ-grenoble-alpes.fr>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = ">= 3.4"
+Fabric = "^2.4"
+colorlog = "^4.0"
+PyYAML = "^5.1"
+lxml = "^4.4"
+
+[tool.poetry.dev-dependencies]
+ipython = "^7.7"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
