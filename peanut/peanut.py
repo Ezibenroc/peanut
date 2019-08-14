@@ -574,6 +574,7 @@ class Job:
             return list(self.__hostnames)
 
     def kadeploy(self, env=None, env_version='2019040916'):
+        sleep_time = 15
         assert self.deploy
         env = env or self.deploy
         self.hostnames
@@ -581,7 +582,8 @@ class Job:
             try:
                 self.frontend.run('kadeploy3 -k -f %s -e %s --env-version %s' % (self.oar_node_file, env, env_version))
             except RunError:
-                time.sleep(random.uniform(30, 60))
+                time.sleep(sleep_time + random.uniform(0, sleep_time/2))
+                sleep_time = min(sleep_time*2, 120)
             else:
                 break
         return self
