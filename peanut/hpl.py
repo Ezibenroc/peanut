@@ -293,7 +293,7 @@ index 41e5afd..5350ea5 100644
 +    timestamp_t start = get_timestamp();\
 +    cblas_dgemm(layout, TransA, TransB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc);\
 +    timestamp_t duration = get_timestamp() - start;\
-+    if(M > 0 && N > 0 && K > 0) record_measure(__FILE__, __LINE__, "dgemm", start, duration, 3, (int []){M, N, K});\
++    if(M > 0 && N > 0 && K > 0) record_measure(__FILE__, __LINE__, "dgemm", start, duration, 9, (int []){M, N, K, lda, ldb, ldc, layout, TransA, TransB});\
 +})
 +
  #ifdef HPL_CALL_FBLAS
