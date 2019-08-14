@@ -583,7 +583,7 @@ class Job:
                 self.frontend.run('kadeploy3 -k -f %s -e %s --env-version %s' % (self.oar_node_file, env, env_version))
             except RunError as e:
                 t = sleep_time + random.uniform(0, sleep_time/2)
-                logger.warning('Kadeploy error, sleeping for %2.fs:\n%s' % (t, e))
+                logger.warning('Kadeploy error, sleeping for %2.f seconds:\n%s' % (t, e))
                 time.sleep(t)
                 sleep_time = min(sleep_time*2, 120)
             else:
@@ -895,7 +895,7 @@ class Job:
                 if nb_tentatives == max_tentatives:
                     raise GitError('Git clone failed\n%s' % e)
                 t = random.uniform(sleep_time*2**nb_tentatives, sleep_time*2**(nb_tentatives+1))
-                logger.warning('Previous command failed, sleeping for %.2e seconds' % t)
+                logger.warning('Previous command failed, sleeping for %.2f seconds' % t)
                 time.sleep(t)
             else:
                 break
