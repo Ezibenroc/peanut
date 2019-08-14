@@ -581,8 +581,10 @@ class Job:
         while True:
             try:
                 self.frontend.run('kadeploy3 -k -f %s -e %s --env-version %s' % (self.oar_node_file, env, env_version))
-            except RunError:
-                time.sleep(sleep_time + random.uniform(0, sleep_time/2))
+            except RunError as e:
+                t = sleep_time + random.uniform(0, sleep_time/2)
+                logger.warning('Kadeploy error, sleeping for %2.fs:\n%s' % (t, e))
+                time.sleep(t)
                 sleep_time = min(sleep_time*2, 120)
             else:
                 break
