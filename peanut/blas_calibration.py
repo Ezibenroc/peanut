@@ -6,10 +6,10 @@ from .peanut import Job, logger, RunError
 
 
 class BLASCalibration(Job):
-    expfile_types = {'operation': str, 'm': int, 'n': int, 'k': int}
+    expfile_types = {'operation': str, 'm': int, 'n': int, 'k': int, 'lda': int, 'ldb': int, 'ldc': int}
     all_op = ['dgemm', 'dtrsm']
     expfile_header_in_file = False
-    expfile_header = ['operation', 'm', 'n', 'k']
+    expfile_header = ['operation', 'm', 'n', 'k', 'lda', 'ldb', 'ldc']
     installfile_types = {'warmup_time': int, 'multicore': bool, 'openblas': str,
                          'remote_url': str, 'path_in_repo': str, 'token_path': str}
 
@@ -17,6 +17,8 @@ class BLASCalibration(Job):
     def check_exp(cls, exp):
         if exp['m'] < 0 or exp['n'] < 0 or (exp['operation'] != 'dtrsm' and exp['k'] < 0):
             raise ValueError('Error with experiment %s, negative size.' % exp)
+        if exp['lda'] < exp['m'] or exp['ldb'] < exp['k'] or exp['ldc'] < exp['m']:
+            raise ValueError('Error with experiment %s, leading dimension is too small.' % exp)
         if exp['operation'] not in cls.all_op:
             raise ValueError('Error with experiment %s, unknown operation.' % exp)
 
@@ -94,7 +96,7 @@ class BLASCalibration(Job):
                 self.nodes.run('awk \'{print $0",%d"}\' %s > tmp && mv tmp %s' % (core, filename, filename), directory=path)
             self.nodes.run('cat %s > ./result.csv' % (' '.join(monocore_files)), directory=path)
         # Adding a header to the file
-        self.nodes.run("sed -i '1s/^/function,m,n,k,timestamp,duration,core\\n/' ./result.csv", directory=path)
+        self.nodes.run("sed -i '1s/^/function,m,n,k,lda,ldb,ldc,timestamp,duration,core\\n/' ./result.csv", directory=path)
         self.add_local_to_archive(path + '/result.csv')
 
     @classmethod
