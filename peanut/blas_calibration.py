@@ -46,7 +46,7 @@ class BLASCalibration(Job):
         self.nodes.run('make -j 64', directory='openblas')
         self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
         self.nodes.run('ln -s libopenblas.so libblas.so', directory='lib')
-        self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration')
+        self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration', checkout='653f49d247eb583b9d414e2b95e79653b438f87f')
         self.nodes.run('BLAS_INSTALLATION=%s make calibrate_blas' % self.nodes.working_dir,
                        directory='platform-calibration/src/calibration')
         self.nodes.disable_hyperthreading()
