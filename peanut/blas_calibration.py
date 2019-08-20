@@ -51,8 +51,11 @@ class BLASCalibration(Job):
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration')
         self.nodes.run('BLAS_INSTALLATION=%s make calibrate_blas' % self.nodes.working_dir,
                        directory='platform-calibration/src/calibration')
+        self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
         self.nodes.disable_hyperthreading()
-        self.nodes.set_frequency_performance()
+        self.nodes.set_frequency_information_pstate(min_perf_pct=100, max_perf_pct=100)
+        self.nodes.disable_idle_state()
+        self.nodes.disable_turboboost()
         return self
 
     def run_exp(self):
