@@ -148,6 +148,7 @@ class Nodes:
                     'duration': (stop-start).total_seconds()
                 }
             }
+        error_msg_stdout = ''
         for node, node_output in output.items():
             hist_entry['stdout'][node.host] = node_output.stdout.strip()
             hist_entry['stderr'][node.host] = node_output.stderr.strip()
