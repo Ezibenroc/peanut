@@ -26,6 +26,8 @@ class HPL(AbstractHPL):
             'libopenmpi-dev',
             'net-tools',
             'stress',
+            'python3',
+            'tmux',
         )
         if install_options['trace_execution']:
             self.apt_install('pajeng')

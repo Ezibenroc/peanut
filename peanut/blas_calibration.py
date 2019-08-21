@@ -81,14 +81,14 @@ class BLASCalibration(Job):
                 numactl = numactl_str % i
                 filename = 'result_monocore_%d.csv' % i
                 monocore_files.append(filename)
-                command = 'tmux new-session -d -s tmux_%d "OMP_NUM_THREADS=1' % i
+                command = 'tmux new-session -d -s tmux_blas_%d "OMP_NUM_THREADS=1' % i
                 command += ' %s %s %s -l 1 -o %s"' % (ldlib, numactl, cmd, filename)
                 self.nodes.run(command, directory=path)
             # Waiting for all the commands to be finished
             while True:
                 try:
                     time.sleep(60)
-                    self.nodes.run('tmux ls')
+                    self.nodes.run('tmux ls | grep tmux_blas')
                 except RunError:
                     break
             # Adding a core ID column to each file, then merge all the files into a single one
