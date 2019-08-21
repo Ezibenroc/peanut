@@ -11,7 +11,7 @@ class BLASCalibration(Job):
     expfile_header_in_file = False
     expfile_header = ['operation', 'm', 'n', 'k']
     installfile_types = {'warmup_time': int, 'multicore': bool, 'openblas': str,
-                         'remote_url': str, 'path_in_repo': str, 'token_path': str}
+            'remote_url': str, 'path_in_repo': str, 'token_path': str, 'monitoring': int}
 
     @classmethod
     def check_exp(cls, exp):
@@ -62,6 +62,8 @@ class BLASCalibration(Job):
         if warmup > 0:
             cmd = 'stress -c %d -t %ds' % (4*len(self.nodes.cores), warmup)
             self.nodes.run(cmd)
+        if install_options['monitoring'] > 0:
+            self.start_monitoring(period=install_options['monitoring'])
         ldlib = 'LD_LIBRARY_PATH=%s/lib' % self.nodes.working_dir
         cmd = './calibrate_blas -s ./zoo_sizes'
         nb_cores = len(self.nodes.cores)
@@ -93,6 +95,8 @@ class BLASCalibration(Job):
             for core, filename in enumerate(monocore_files):
                 self.nodes.run('awk \'{print $0",%d"}\' %s > tmp && mv tmp %s' % (core, filename, filename), directory=path)
             self.nodes.run('cat %s > ./result.csv' % (' '.join(monocore_files)), directory=path)
+        if install_options['monitoring'] > 0:
+            self.stop_monitoring()
         # Adding a header to the file
         self.nodes.run("sed -i '1s/^/function,m,n,k,timestamp,duration,core\\n/' ./result.csv", directory=path)
         self.add_local_to_archive(path + '/result.csv')

@@ -5,7 +5,7 @@ from .abstract_hpl import AbstractHPL
 
 
 class HPL(AbstractHPL):
-    installfile_types = {'warmup_time': int, 'trace_dgemm': bool,
+    installfile_types = {'warmup_time': int, 'trace_dgemm': bool, 'monitoring': int,
                          **AbstractHPL.installfile_types}
     def install_akypuera(self):
         self.git_clone('https://github.com/Ezibenroc/akypuera.git', 'akypuera', recursive=True,
@@ -65,6 +65,8 @@ class HPL(AbstractHPL):
         if warmup > 0:
             cmd = 'stress -c %d -t %ds' % (4*nb_cores, warmup)
             self.nodes.run(cmd)
+        if install_options['monitoring'] > 0:
+            self.start_monitoring(period=install_options['monitoring'])
         results = []
         start = time.time()
         assert len(self.expfile) == 1
@@ -155,6 +157,8 @@ class HPL(AbstractHPL):
             else:
                 time_info = ''
             logger.debug('Done experiment %d / %d%s' % (i+1, len(expfile), time_info))
+        if install_options['monitoring'] > 0:
+            self.stop_monitoring()
         results = ExpFile(content=results, filename='results.csv')
         self.add_content_to_archive(results.raw_content, 'results.csv')
 
