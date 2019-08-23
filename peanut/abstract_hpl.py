@@ -42,7 +42,7 @@ class AbstractHPL(Job):
             'cpufrequtils',
             'linux-cpupower',
         )
-        self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout='v0.3.1')
+        self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout='v0.3.7')
         self.nodes.run('make -j 64', directory='openblas')
         self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
 
