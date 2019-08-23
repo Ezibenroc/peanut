@@ -43,7 +43,7 @@ class AbstractHPL(Job):
             'linux-cpupower',
         )
         self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout='v0.3.1')
-        self.nodes.run('make -j 64 NO_AVX512=1', directory='openblas')
+        self.nodes.run('make -j 64', directory='openblas')
         self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
 
     @staticmethod

@@ -43,7 +43,7 @@ class BLASCalibration(Job):
         )
         openblas_version = install_options['openblas']
         self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout=openblas_version)
-        self.nodes.run('make -j 64 NO_AVX512=1', directory='openblas')
+        self.nodes.run('make -j 64', directory='openblas')
         self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
         self.nodes.run('ln -s libopenblas.so libblas.so', directory='lib')
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration', checkout='653f49d247eb583b9d414e2b95e79653b438f87f')
