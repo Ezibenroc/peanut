@@ -74,7 +74,7 @@ class SMPIHPL(AbstractHPL):
                          **AbstractHPL.expfile_types)
     installfile_types = {'stochastic_network': bool, 'stochastic_cpu': bool, 'polynomial_dgemm': bool,
                          'heterogeneous_dgemm': bool, 'disable_hpl_kernels': bool,
-                         'disable_nondgemm_randomness': bool,
+                         'disable_nondgemm_randomness': bool, 'cluster': str,
                          **AbstractHPL.installfile_types}
 
     def setup(self):
@@ -91,13 +91,17 @@ class SMPIHPL(AbstractHPL):
                        checkout='a6f883f0e28e60a805227007ec71cac80bced118', patch=simgrid_patch)
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
-        if not install_options['heterogeneous_dgemm']:
-            hpl_branch = 'homogeneous_dgemm'
+        if install_options['cluster'] == 'paravance':
+            hpl_branch = 'paravance_model'
         else:
-            if install_options['polynomial_dgemm']:
-                hpl_branch = 'heterogeneous_polynomial_dgemm'
+            assert install_options['cluster'] == 'dahu'
+            if not install_options['heterogeneous_dgemm']:
+                hpl_branch = 'homogeneous_dgemm'
             else:
-                hpl_branch = 'heterogeneous_linear_dgemm'
+                if install_options['polynomial_dgemm']:
+                    hpl_branch = 'heterogeneous_polynomial_dgemm'
+                else:
+                    hpl_branch = 'heterogeneous_linear_dgemm'
         patches = [self.makefile_patch]
         if not install_options['stochastic_cpu']:
             patches.append(self.no_noise_patch)
