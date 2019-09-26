@@ -618,7 +618,7 @@ class Job:
         if script:
             cmd += " '%s'" % script
         else:
-            date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            date = frontend.run_unique('date "+%Y-%m-%d %H:%M:%S"').stdout.strip()
             cmd += ' -r "%s"' % date
         if container:
             cmd += ' -t inner=%d' % container
