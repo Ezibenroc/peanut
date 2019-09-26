@@ -662,7 +662,9 @@ class Job:
 
     @classmethod
     def g5k_connection(cls, site, username):
-        if 'grid5000' in socket.getfqdn():  # already inside G5K, no need for a gateway
+        # socket.getfqdn() does not work anymore since the Debian 10 update in G5K
+        fqdn = socket.getaddrinfo(socket.gethostname(), 0, flags=socket.AI_CANONNAME)[0][3]
+        if 'grid5000' in fqdn:  # already inside G5K, no need for a gateway
             connection = fabric.Connection(site, user=username)
         else:
             gateway = fabric.Connection('access.grid5000.fr', user=username)
