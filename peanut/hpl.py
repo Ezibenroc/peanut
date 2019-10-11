@@ -46,6 +46,8 @@ class HPL(AbstractHPL):
         if install_options['insert_bcast']:
             self.nodes.write_files(self.hpl_bcast_patch, self.hpl_dir + '/patch.diff')
             self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
+        self.nodes.write_files(self.extra_dgemm_patch, self.hpl_dir + '/patch.diff')
+        self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
         self.nodes.write_files(self.makefile, os.path.join(self.hpl_dir, 'Make.Debian'))
         self.nodes.run('make startup arch=Debian', directory=self.hpl_dir)
         while True:
@@ -729,4 +731,96 @@ index 9039693..395cbe9 100644
     (void) HPL_grid_info( GRID, &nprow, &npcol, &myrow, &mycol );
 
     mat.n  = N; mat.nb = NB; mat.info = 0;
+'''
+
+    extra_dgemm_patch = r'''
+diff --git a/include/hpl_blas.h b/include/hpl_blas.h
+index 41e5afd..a9dde0a 100644
+--- a/include/hpl_blas.h
++++ b/include/hpl_blas.h
+@@ -79,7 +79,7 @@ enum HPL_SIDE
+
+ #define    CBLAS_ORDER         HPL_ORDER
+ #define    CblasRowMajor       HplRowMajor
+-#define    CblasColMajor       HplColMajor
++#define    CblasColMajor       HplColumnMajor
+
+ #define    CBLAS_TRANSPOSE     HPL_TRANS
+ #define    CblasNoTrans        HplNoTrans
+diff --git a/include/hpl_pgesv.h b/include/hpl_pgesv.h
+index a11a13e..0ed360e 100644
+--- a/include/hpl_pgesv.h
++++ b/include/hpl_pgesv.h
+@@ -340,6 +340,8 @@ STDC_ARGS( (
+    HPL_T_pmat *
+ ) );
+
++void perform_dgemm_tests(size_t size, int nb_iterations);
++
+ #endif
+ /*
+  * End of hpl_pgesv.h
+diff --git a/src/pgesv/HPL_pdgesv0.c b/src/pgesv/HPL_pdgesv0.c
+index 8bcf71a..bc06fc7 100644
+--- a/src/pgesv/HPL_pdgesv0.c
++++ b/src/pgesv/HPL_pdgesv0.c
+@@ -48,6 +48,34 @@
+  * Include files
+  */
+ #include "hpl.h"
++#include <errno.h>
++
++double *allocate_matrix(int size) {
++    double *result = (double*) malloc(size*size*sizeof(double));
++    if(!result) {
++      perror("malloc");
++      exit(errno);
++    }
++    memset(result, 1, size*size*sizeof(double));
++    return result;
++}
++
++void perform_dgemm_tests(size_t size, int nb_iterations) {
++    MPI_Barrier(MPI_COMM_WORLD);
++    double alpha = 1., beta=1.;
++    double *matrix_A = allocate_matrix(size);
++    double *matrix_B = allocate_matrix(size);
++    double *matrix_C = allocate_matrix(size);
++    MPI_Barrier(MPI_COMM_WORLD);
++    for(int iteration=0; iteration<nb_iterations; iteration++) {
++        HPL_dgemm(CblasColMajor, CblasNoTrans, CblasTrans, size, size, size, alpha, matrix_A, size,
++              matrix_B, size, beta, matrix_C, size);
++    }
++    free(matrix_A);
++    free(matrix_B);
++    free(matrix_C);
++    MPI_Barrier(MPI_COMM_WORLD);
++}
+
+ #ifdef STDC_HEADERS
+ void HPL_pdgesv0
+@@ -126,6 +154,9 @@ void HPL_pdgesv0
+    for( j = 0; j < N; j += nb )
+    {
+       n = N - j; jb = Mmin( n, nb );
++      if((j/nb) % 20 == 1) {  // every 20 steps, we do our own matrix products to make some controlled measures
++          perform_dgemm_tests(2048, 50);
++      }
+ #ifdef HPL_PROGRESS_REPORT
+       /* if this is process 0,0 and not the first panel */
+       if ( GRID->myrow == 0 && GRID->mycol == 0 && j > 0 )
+diff --git a/src/pgesv/HPL_pdgesvK2.c b/src/pgesv/HPL_pdgesvK2.c
+index 3aa7f2b..31dbbbc 100644
+--- a/src/pgesv/HPL_pdgesvK2.c
++++ b/src/pgesv/HPL_pdgesvK2.c
+@@ -172,6 +172,9 @@ void HPL_pdgesvK2
+    for( j = jstart; j < N; j += nb )
+    {
+       n = N - j; jb = Mmin( n, nb );
++      if(((j-jstart)/nb) % 20 == 1) {  // every 20 steps, we do our own matrix products to make some controlled measures
++          perform_dgemm_tests(2048, 50);
++      }
+ #ifdef HPL_PROGRESS_REPORT
+       /* if this is process 0,0 and not the first panel */
+       if ( GRID->myrow == 0 && mycol == 0 && j > 0 )
 '''
