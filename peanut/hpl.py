@@ -782,7 +782,7 @@ index 8bcf71a..bc06fc7 100644
 +
 +void perform_dgemm_tests(size_t size, int nb_iterations) {
 +    MPI_Barrier(MPI_COMM_WORLD);
-+    double alpha = 0.9999, beta=0.9999;
++    double alpha = -1.0, beta = 1.0;
 +    double *matrix_A = allocate_matrix(size);
 +    double *matrix_B = allocate_matrix(size);
 +    double *matrix_C = allocate_matrix(size);
