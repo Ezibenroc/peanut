@@ -761,10 +761,10 @@ index a11a13e..0ed360e 100644
  /*
   * End of hpl_pgesv.h
 diff --git a/src/pgesv/HPL_pdgesv0.c b/src/pgesv/HPL_pdgesv0.c
-index 8bcf71a..bc06fc7 100644
+index 8bcf71a..7853286 100644
 --- a/src/pgesv/HPL_pdgesv0.c
 +++ b/src/pgesv/HPL_pdgesv0.c
-@@ -48,6 +48,34 @@
+@@ -48,6 +48,36 @@
   * Include files
   */
  #include "hpl.h"
@@ -776,13 +776,15 @@ index 8bcf71a..bc06fc7 100644
 +      perror("malloc");
 +      exit(errno);
 +    }
-+    memset(result, 1, size*size*sizeof(double));
++    for(int i = 0; i < size*size; i++) {
++        result[i] = (double)rand()/(double)(RAND_MAX);
++    }
 +    return result;
 +}
 +
 +void perform_dgemm_tests(size_t size, int nb_iterations) {
 +    MPI_Barrier(MPI_COMM_WORLD);
-+    double alpha = -1.0, beta = 1.0;
++    double alpha = 1., beta = 1.;
 +    double *matrix_A = allocate_matrix(size);
 +    double *matrix_B = allocate_matrix(size);
 +    double *matrix_C = allocate_matrix(size);
@@ -799,7 +801,7 @@ index 8bcf71a..bc06fc7 100644
 
  #ifdef STDC_HEADERS
  void HPL_pdgesv0
-@@ -126,6 +154,9 @@ void HPL_pdgesv0
+@@ -126,6 +156,9 @@ void HPL_pdgesv0
     for( j = 0; j < N; j += nb )
     {
        n = N - j; jb = Mmin( n, nb );
@@ -810,7 +812,7 @@ index 8bcf71a..bc06fc7 100644
        /* if this is process 0,0 and not the first panel */
        if ( GRID->myrow == 0 && GRID->mycol == 0 && j > 0 )
 diff --git a/src/pgesv/HPL_pdgesvK2.c b/src/pgesv/HPL_pdgesvK2.c
-index 3aa7f2b..31dbbbc 100644
+index 3aa7f2b..2b0766b 100644
 --- a/src/pgesv/HPL_pdgesvK2.c
 +++ b/src/pgesv/HPL_pdgesvK2.c
 @@ -172,6 +172,9 @@ void HPL_pdgesvK2
