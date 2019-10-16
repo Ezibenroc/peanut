@@ -5,7 +5,7 @@ from .abstract_hpl import AbstractHPL
 
 
 class HPL(AbstractHPL):
-    installfile_types = {'warmup_time': int, 'trace_dgemm': bool,
+    installfile_types = {'warmup_time': int, 'trace_dgemm': bool, 'monitoring': int,
                          **AbstractHPL.installfile_types}
     def install_akypuera(self):
         self.git_clone('https://github.com/Ezibenroc/akypuera.git', 'akypuera', recursive=True,
@@ -26,6 +26,8 @@ class HPL(AbstractHPL):
             'libopenmpi-dev',
             'net-tools',
             'stress',
+            'python3',
+            'tmux',
         )
         if install_options['trace_execution']:
             self.apt_install('pajeng')
@@ -44,6 +46,8 @@ class HPL(AbstractHPL):
         if install_options['insert_bcast']:
             self.nodes.write_files(self.hpl_bcast_patch, self.hpl_dir + '/patch.diff')
             self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
+        self.nodes.write_files(self.extra_dgemm_patch, self.hpl_dir + '/patch.diff')
+        self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
         self.nodes.write_files(self.makefile, os.path.join(self.hpl_dir, 'Make.Debian'))
         self.nodes.run('make startup arch=Debian', directory=self.hpl_dir)
         while True:
@@ -68,6 +72,8 @@ class HPL(AbstractHPL):
         if warmup > 0:
             cmd = 'stress -c %d -t %ds' % (4*nb_cores, warmup)
             self.nodes.run(cmd)
+        if install_options['monitoring'] > 0:
+            self.start_monitoring(period=install_options['monitoring'])
         results = []
         start = time.time()
         assert len(self.expfile) == 1
@@ -158,6 +164,8 @@ class HPL(AbstractHPL):
             else:
                 time_info = ''
             logger.debug('Done experiment %d / %d%s' % (i+1, len(expfile), time_info))
+        if install_options['monitoring'] > 0:
+            self.stop_monitoring()
         results = ExpFile(content=results, filename='results.csv')
         self.add_content_to_archive(results.raw_content, 'results.csv')
 
@@ -726,4 +734,98 @@ index 9039693..395cbe9 100644
     (void) HPL_grid_info( GRID, &nprow, &npcol, &myrow, &mycol );
 
     mat.n  = N; mat.nb = NB; mat.info = 0;
+'''
+
+    extra_dgemm_patch = r'''
+diff --git a/include/hpl_blas.h b/include/hpl_blas.h
+index 41e5afd..a9dde0a 100644
+--- a/include/hpl_blas.h
++++ b/include/hpl_blas.h
+@@ -79,7 +79,7 @@ enum HPL_SIDE
+
+ #define    CBLAS_ORDER         HPL_ORDER
+ #define    CblasRowMajor       HplRowMajor
+-#define    CblasColMajor       HplColMajor
++#define    CblasColMajor       HplColumnMajor
+
+ #define    CBLAS_TRANSPOSE     HPL_TRANS
+ #define    CblasNoTrans        HplNoTrans
+diff --git a/include/hpl_pgesv.h b/include/hpl_pgesv.h
+index a11a13e..0ed360e 100644
+--- a/include/hpl_pgesv.h
++++ b/include/hpl_pgesv.h
+@@ -340,6 +340,8 @@ STDC_ARGS( (
+    HPL_T_pmat *
+ ) );
+
++void perform_dgemm_tests(size_t size, int nb_iterations);
++
+ #endif
+ /*
+  * End of hpl_pgesv.h
+diff --git a/src/pgesv/HPL_pdgesv0.c b/src/pgesv/HPL_pdgesv0.c
+index 8bcf71a..7853286 100644
+--- a/src/pgesv/HPL_pdgesv0.c
++++ b/src/pgesv/HPL_pdgesv0.c
+@@ -48,6 +48,36 @@
+  * Include files
+  */
+ #include "hpl.h"
++#include <errno.h>
++
++double *allocate_matrix(int size) {
++    double *result = (double*) malloc(size*size*sizeof(double));
++    if(!result) {
++      perror("malloc");
++      exit(errno);
++    }
++    for(int i = 0; i < size*size; i++) {
++        result[i] = (double)rand()/(double)(RAND_MAX);
++    }
++    return result;
++}
++
++void perform_dgemm_tests(size_t size, int nb_iterations) {
++    MPI_Barrier(MPI_COMM_WORLD);
++    double alpha = 1., beta = 1.;
++    double *matrix_A = allocate_matrix(size);
++    double *matrix_B = allocate_matrix(size);
++    double *matrix_C = allocate_matrix(size);
++    MPI_Barrier(MPI_COMM_WORLD);
++    for(int iteration=0; iteration<nb_iterations; iteration++) {
++        HPL_dgemm(CblasColMajor, CblasNoTrans, CblasTrans, size, size, size, alpha, matrix_A, size,
++              matrix_B, size, beta, matrix_C, size);
++    }
++    free(matrix_A);
++    free(matrix_B);
++    free(matrix_C);
++    MPI_Barrier(MPI_COMM_WORLD);
++}
+
+ #ifdef STDC_HEADERS
+ void HPL_pdgesv0
+@@ -126,6 +156,9 @@ void HPL_pdgesv0
+    for( j = 0; j < N; j += nb )
+    {
+       n = N - j; jb = Mmin( n, nb );
++      if((j/nb) % 20 == 1) {  // every 20 steps, we do our own matrix products to make some controlled measures
++          perform_dgemm_tests(2048, 50);
++      }
+ #ifdef HPL_PROGRESS_REPORT
+       /* if this is process 0,0 and not the first panel */
+       if ( GRID->myrow == 0 && GRID->mycol == 0 && j > 0 )
+diff --git a/src/pgesv/HPL_pdgesvK2.c b/src/pgesv/HPL_pdgesvK2.c
+index 3aa7f2b..2b0766b 100644
+--- a/src/pgesv/HPL_pdgesvK2.c
++++ b/src/pgesv/HPL_pdgesvK2.c
+@@ -172,6 +172,9 @@ void HPL_pdgesvK2
+    for( j = jstart; j < N; j += nb )
+    {
+       n = N - j; jb = Mmin( n, nb );
++      if(((j-jstart)/nb) % 20 == 1) {  // every 20 steps, we do our own matrix products to make some controlled measures
++          perform_dgemm_tests(2048, 50);
++      }
+ #ifdef HPL_PROGRESS_REPORT
+       /* if this is process 0,0 and not the first panel */
+       if ( GRID->myrow == 0 && mycol == 0 && j > 0 )
 '''

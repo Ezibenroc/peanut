@@ -11,7 +11,7 @@ class BLASCalibration(Job):
     expfile_header_in_file = False
     expfile_header = ['operation', 'm', 'n', 'k', 'lda', 'ldb', 'ldc']
     installfile_types = {'warmup_time': int, 'multicore': bool, 'openblas': str,
-                         'remote_url': str, 'path_in_repo': str, 'token_path': str}
+            'remote_url': str, 'path_in_repo': str, 'token_path': str, 'monitoring': int}
 
     @classmethod
     def check_exp(cls, exp):
@@ -48,7 +48,7 @@ class BLASCalibration(Job):
         self.nodes.run('make -j 64', directory='openblas')
         self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
         self.nodes.run('ln -s libopenblas.so libblas.so', directory='lib')
-        self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration')
+        self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration', checkout='653f49d247eb583b9d414e2b95e79653b438f87f')
         self.nodes.run('BLAS_INSTALLATION=%s make calibrate_blas' % self.nodes.working_dir,
                        directory='platform-calibration/src/calibration')
         self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
@@ -67,6 +67,8 @@ class BLASCalibration(Job):
         if warmup > 0:
             cmd = 'stress -c %d -t %ds' % (4*len(self.nodes.cores), warmup)
             self.nodes.run(cmd)
+        if install_options['monitoring'] > 0:
+            self.start_monitoring(period=install_options['monitoring'])
         ldlib = 'LD_LIBRARY_PATH=%s/lib' % self.nodes.working_dir
         cmd = './calibrate_blas -s ./zoo_sizes'
         nb_cores = len(self.nodes.cores)
@@ -84,20 +86,22 @@ class BLASCalibration(Job):
                 numactl = numactl_str % i
                 filename = 'result_monocore_%d.csv' % i
                 monocore_files.append(filename)
-                command = 'tmux new-session -d -s tmux_%d "OMP_NUM_THREADS=1' % i
+                command = 'tmux new-session -d -s tmux_blas_%d "OMP_NUM_THREADS=1' % i
                 command += ' %s %s %s -l 1 -o %s"' % (ldlib, numactl, cmd, filename)
                 self.nodes.run(command, directory=path)
             # Waiting for all the commands to be finished
             while True:
                 try:
                     time.sleep(60)
-                    self.nodes.run('tmux ls')
+                    self.nodes.run('tmux ls | grep tmux_blas')
                 except RunError:
                     break
             # Adding a core ID column to each file, then merge all the files into a single one
             for core, filename in enumerate(monocore_files):
                 self.nodes.run('awk \'{print $0",%d"}\' %s > tmp && mv tmp %s' % (core, filename, filename), directory=path)
             self.nodes.run('cat %s > ./result.csv' % (' '.join(monocore_files)), directory=path)
+        if install_options['monitoring'] > 0:
+            self.stop_monitoring()
         # Adding a header to the file
         self.nodes.run("sed -i '1s/^/function,m,n,k,lda,ldb,ldc,timestamp,duration,core\\n/' ./result.csv", directory=path)
         self.add_local_to_archive(path + '/result.csv')

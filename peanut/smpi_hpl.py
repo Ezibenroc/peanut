@@ -70,11 +70,9 @@ def parse_smpi(output):
 
 
 class SMPIHPL(AbstractHPL):
-    expfile_types = dict(dgemm_coefficient=float, dgemm_intercept=float, dtrsm_coefficient=float, dtrsm_intercept=float,
-                         **AbstractHPL.expfile_types)
     installfile_types = {'stochastic_network': bool, 'stochastic_cpu': bool, 'polynomial_dgemm': bool,
                          'heterogeneous_dgemm': bool, 'disable_hpl_kernels': bool,
-                         'disable_nondgemm_randomness': bool,
+                         'disable_nondgemm_randomness': bool, 'cluster': str,
                          **AbstractHPL.installfile_types}
 
     def setup(self):
@@ -91,13 +89,17 @@ class SMPIHPL(AbstractHPL):
                        checkout='a6f883f0e28e60a805227007ec71cac80bced118', patch=simgrid_patch)
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
-        if not install_options['heterogeneous_dgemm']:
-            hpl_branch = 'homogeneous_dgemm'
+        if install_options['cluster'] == 'paravance':
+            hpl_branch = 'paravance_model'
         else:
-            if install_options['polynomial_dgemm']:
-                hpl_branch = 'heterogeneous_polynomial_dgemm'
+            assert install_options['cluster'] == 'dahu'
+            if not install_options['heterogeneous_dgemm']:
+                hpl_branch = 'homogeneous_dgemm'
             else:
-                hpl_branch = 'heterogeneous_linear_dgemm'
+                if install_options['polynomial_dgemm']:
+                    hpl_branch = 'heterogeneous_polynomial_dgemm'
+                else:
+                    hpl_branch = 'heterogeneous_linear_dgemm'
         patches = [self.makefile_patch]
         if not install_options['stochastic_cpu']:
             patches.append(self.no_noise_patch)
@@ -159,17 +161,10 @@ class SMPIHPL(AbstractHPL):
             hpl_file = self.generate_hpl_file(**exp)
             self.nodes.write_files(hpl_file, os.path.join(self.hpl_dir, 'bin/SMPI/HPL.dat'))
 
-            dgemm_coeff = exp['dgemm_coefficient']
-            dgemm_inter = exp['dgemm_intercept']
-            dtrsm_coeff = exp['dtrsm_coefficient']
-            dtrsm_inter = exp['dtrsm_intercept']
-
             memwatch_file = os.path.join(self.nodes.working_dir, 'memory_%d.csv' % i)
             memwatch_script = os.path.join(self.nodes.working_dir, 'memwatch/memwatch.py')
 
-            cmd = 'SMPI_DGEMM_COEFFICIENT=%e SMPI_DGEMM_INTERCEPT=%e ' % (dgemm_coeff, dgemm_inter)
-            cmd += 'SMPI_DTRSM_COEFFICIENT=%e SMPI_DTRSM_INTERCEPT=%e ' % (dtrsm_coeff, dtrsm_inter)
-            cmd += 'TIME="/usr/bin/time:output %U %S %F %R %P" '
+            cmd = 'TIME="/usr/bin/time:output %U %S %F %R %P" '
             cmd += 'LD_LIBRARY_PATH=/tmp/lib '
             subcmd = 'smpirun -wrapper /usr/bin/time --cfg=smpi/privatize-global-variables:dlopen -np %d ' % nb_hpl_proc
             subcmd += '--cfg=smpi/simulate-computation:no '
@@ -208,10 +203,6 @@ class SMPIHPL(AbstractHPL):
         factors = dict(cls.expfile_sets)
         factors['matrix_size'] = [int(x) for x in [5e5, 1e6, 2e6, 4e6]]
         factors['block_size'] = [2**7]
-        factors['dgemm_coefficient'] = [42.0]
-        factors['dgemm_intercept'] = [42.0]
-        factors['dtrsm_coefficient'] = [42.0]
-        factors['dtrsm_intercept'] = [42.0]
         factors['proc_p'] = [16, 32, 64, 128]
         factors['proc_q'] = [32]
         factors['rfact'] = [2]

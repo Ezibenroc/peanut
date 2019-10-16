@@ -148,6 +148,7 @@ class Nodes:
                     'duration': (stop-start).total_seconds()
                 }
             }
+        error_msg_stdout = ''
         for node, node_output in output.items():
             hist_entry['stdout'][node.host] = node_output.stdout.strip()
             hist_entry['stderr'][node.host] = node_output.stderr.strip()
@@ -617,7 +618,7 @@ class Job:
         if script:
             cmd += " '%s'" % script
         else:
-            date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            date = frontend.run_unique('date "+%Y-%m-%d %H:%M:%S"').stdout.strip()
             cmd += ' -r "%s"' % date
         if container:
             cmd += ' -t inner=%d' % container
@@ -661,7 +662,9 @@ class Job:
 
     @classmethod
     def g5k_connection(cls, site, username):
-        if 'grid5000' in socket.getfqdn():  # already inside G5K, no need for a gateway
+        # socket.getfqdn() does not work anymore since the Debian 10 update in G5K
+        fqdn = socket.getaddrinfo(socket.gethostname(), 0, flags=socket.AI_CANONNAME)[0][3]
+        if 'grid5000' in fqdn:  # already inside G5K, no need for a gateway
             connection = fabric.Connection(site, user=username)
         else:
             gateway = fabric.Connection('access.grid5000.fr', user=username)
@@ -747,6 +750,29 @@ class Job:
                 for host, temperatures in entry['temperatures'].items():
                     for i, temp in enumerate(temperatures):
                         writer.writerow((timestamp, host, temp, i))
+
+    def start_monitoring(self, period=1):
+        self.git_clone('https://github.com/Ezibenroc/Stress-Test.git', 'monitoring')
+        command = 'python3 monitoring/basic_monitoring.py --period %d ' % period
+        command += '--temp_output monitoring_temp.csv --freq_output monitoring_freq.csv '
+        command += '--pid_file monitoring_pid'
+        command = 'tmux new-session -d -s tmux_monitoring "%s"' % command
+        self.nodes.run(command)
+
+    def stop_monitoring(self):
+        self.nodes.run('kill -SIGINT $(cat monitoring_pid)')
+        for filename in ['monitoring_temp.csv', 'monitoring_freq.csv']:
+            if len(self.orchestra.hostnames) > 0:
+                self.orchestra.run('sed -i "1d" %s' % filename)  # removing the header
+                remote_file = os.path.join(self.orchestra.working_dir, filename)
+                all_files = []
+                for i, node in enumerate(self.orchestra.hostnames):
+                    local_file = '%s%d' % (filename, i)
+                    all_files.append(local_file)
+                    self.director.run("rsync -a '%s:%s' %s" % (node, remote_file, local_file))
+                    self.director.run('cat %s >> %s' % (' '.join(all_files), filename))
+            self.add_local_to_archive(filename)
+        self.nodes.run('rm -rf monitoring')
 
     def add_raw_information_to_archive(self):
         for host in self.hostnames:
