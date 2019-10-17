@@ -150,4 +150,12 @@ class BLASCalibration(Job):
         for i in range(1, 5):
             sizes.append((i, i, i))
         random.shuffle(sizes)
-        return [{'operation': 'dgemm', 'm': m, 'n': n, 'k': k} for (m, n, k) in sizes]
+        return [{
+                'operation': 'dgemm',
+                'm': m,
+                'n': n,
+                'k': k,
+                'lda': max(m, n, k),
+                'ldb': max(m, n, k),
+                'ldc': max(m, n, k)
+            } for (m, n, k) in sizes]
