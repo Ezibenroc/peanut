@@ -49,7 +49,7 @@ class BLASCalibration(Job):
         self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
         self.nodes.run('ln -s libopenblas.so libblas.so', directory='lib')
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration',
-                       checkout='2f2158e4e6e724de7609f061d845f64fe4baf556')
+                       checkout='2f2a3de6db7006ecf9f961119480831b4142a5c8')
         self.nodes.run('BLAS_INSTALLATION=%s make calibrate_blas' % self.nodes.working_dir,
                        directory='platform-calibration/src/calibration')
         self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
