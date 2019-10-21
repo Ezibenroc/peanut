@@ -454,16 +454,16 @@ class Job:
         'grenoble': ['dahu', 'yeti'],
         'lyon': ['sagittaire', 'hercule', 'orion', 'taurus', 'nova'],
         'nancy': ['griffon', 'graphene', 'graphite', 'grimoire', 'grisou', 'graphique', 'graoully', 'grimani', 'grele',
-                  'grvingt'],
+                  'grvingt', 'gros'],
         'rennes': ['parapide', 'parapluie', 'paranoia', 'parasilo', 'paravance'],
         'sophia': ['suno', 'uvb'],
-        'lille': ['chetemi', 'chifflet'],
+        'lille': ['chetemi', 'chifflet', 'chiclet', 'chifflot'],
         'luxembourg': ['granduc', 'petitprince'],
         'nantes': ['econome', 'ecotype']
     }
     sites = {cluster: site for site, cluster_list in clusters.items() for cluster in cluster_list}
     special_clusters = {
-        'testing': [],
+        'testing': ['gros'],
         'production': ['graphique', 'graoully', 'grimani', 'grele', 'grvingt'],
     }
     queues = {cluster: queue for queue, cluster_list in special_clusters.items() for cluster in cluster_list}
