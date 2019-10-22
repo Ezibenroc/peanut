@@ -10,7 +10,7 @@ class BLASCalibration(Job):
     all_op = ['dgemm', 'dtrsm']
     expfile_header_in_file = False
     expfile_header = ['operation', 'm', 'n', 'k', 'lda', 'ldb', 'ldc']
-    installfile_types = {'warmup_time': int, 'multicore': bool, 'openblas': str,
+    installfile_types = {'warmup_time': int, 'multicore': bool, 'openblas': str, 'matrix_initialization': (str,int,float),
             'remote_url': str, 'path_in_repo': str, 'token_path': str, 'monitoring': int}
 
     @classmethod
@@ -26,6 +26,13 @@ class BLASCalibration(Job):
         super().setup()
         assert self.installfile is not None
         install_options = self.installfile.content
+        matrix_init = install_options['matrix_initialization']
+        if matrix_init != 'random':
+            try:
+                float(matrix_init)
+            except ValueError:
+                logger.error('Wrong value "%s" to initialize the matrix: neither "random" nor a float' % matrix_init)
+                matrix_init = 'random'
         self.apt_install(
             'build-essential',
             'python3',
@@ -48,8 +55,9 @@ class BLASCalibration(Job):
         self.nodes.run('make -j 64', directory='openblas')
         self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
         self.nodes.run('ln -s libopenblas.so libblas.so', directory='lib')
+        patch = None if matrix_init == 'random' else self.initialization_patch(matrix_init)
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration',
-                       checkout='2f2158e4e6e724de7609f061d845f64fe4baf556')
+                       checkout='2f2158e4e6e724de7609f061d845f64fe4baf556', patch=patch)
         self.nodes.run('BLAS_INSTALLATION=%s make calibrate_blas' % self.nodes.working_dir,
                        directory='platform-calibration/src/calibration')
         self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
@@ -159,3 +167,21 @@ class BLASCalibration(Job):
                 'ldb': max(m, n, k),
                 'ldc': max(m, n, k)
             } for (m, n, k) in sizes]
+
+    @classmethod
+    def initialization_patch(cls, value):
+        return r'''
+diff --git a/src/calibration/calibrate_blas.c b/src/calibration/calibrate_blas.c
+index d767886..ae0e377 100644
+--- a/src/calibration/calibrate_blas.c
++++ b/src/calibration/calibrate_blas.c
+@@ -75,7 +75,7 @@ double *allocate_matrix(int size) {
+       exit(errno);
+     }
+     for(int i = 0; i < size*size; i++) {
+-        result[i] = (double)rand()/(double)(RAND_MAX);
++        result[i] = (double)%s;
+     }
+     return result;
+ }
+''' % value
