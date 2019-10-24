@@ -60,9 +60,13 @@ class BLASCalibration(Job):
                        checkout='2f2158e4e6e724de7609f061d845f64fe4baf556', patch=patch)
         self.nodes.run('BLAS_INSTALLATION=%s make calibrate_blas' % self.nodes.working_dir,
                        directory='platform-calibration/src/calibration')
-        self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
-        self.nodes.disable_hyperthreading()
-        self.nodes.set_frequency_information_pstate(min_perf_pct=100, max_perf_pct=100)
+        if self.nodes.frequency_information.active_driver == 'intel_pstate':
+            self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
+            self.nodes.disable_hyperthreading()
+            self.nodes.set_frequency_information_pstate(min_perf_pct=100, max_perf_pct=100)
+        else:
+            self.nodes.disable_hyperthreading()
+            self.nodes.set_frequency_performance()
         self.nodes.disable_idle_state()
         return self
 
