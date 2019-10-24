@@ -750,6 +750,7 @@ class Job:
                 for host, temperatures in entry['temperatures'].items():
                     for i, temp in enumerate(temperatures):
                         writer.writerow((timestamp, host, temp, i))
+        self.add_file_to_archive(filename, filename)
 
     def start_monitoring(self, period=1):
         self.git_clone('https://github.com/Ezibenroc/Stress-Test.git', 'monitoring')
@@ -877,8 +878,7 @@ class Job:
         job_info = self.platform_information()
         self.add_content_to_archive(yaml.dump(job_info, default_flow_style=False), 'info.yaml')
         self.add_content_to_archive(yaml.dump(self.oarstat(), default_flow_style=False), 'oarstat.yaml')
-        self.dump_temperatures('/tmp/temperatures.csv')
-        self.add_file_to_archive('/tmp/temperatures.csv', 'temperatures.csv')
+        self.dump_temperatures('temperatures.csv')
         try:
             expfile = self.expfile
         except AttributeError:  # no expfile
@@ -1150,7 +1150,10 @@ class Job:
     def setup(self):
         if self.deploy:
             self.kadeploy()
-        self.register_temperature()
+        try:
+            self.register_temperature()
+        except RunError:
+            logger.warning('No temperature information available.')
         self.nodes.run('rm -rf /tmp/*')
         # Creating an empty zip archive on the director node
         # See https://stackoverflow.com/a/50091682/4110059
@@ -1159,7 +1162,10 @@ class Job:
             self.send_key()
 
     def teardown(self):
-        self.register_temperature()
+        try:
+            self.register_temperature()
+        except RunError:
+            logger.warning('No temperature information available.')
         self.add_information_to_archive()
         self.get_archive()
         self.oardel()
