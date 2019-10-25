@@ -27,12 +27,14 @@ class BLASCalibration(Job):
         assert self.installfile is not None
         install_options = self.installfile.content
         matrix_init = install_options['matrix_initialization']
-        if matrix_init != 'random':
+        if matrix_init not in ('random', 'sequential'):
             try:
                 float(matrix_init)
             except ValueError:
                 logger.error('Wrong value "%s" to initialize the matrix: neither "random" nor a float' % matrix_init)
                 matrix_init = 'random'
+        if matrix_init == 'sequential':
+            matrix_init = 'i/(double)(size*size-1)'
         self.apt_install(
             'build-essential',
             'python3',
