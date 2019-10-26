@@ -70,6 +70,7 @@ class BLASCalibration(Job):
             self.nodes.disable_hyperthreading()
             self.nodes.set_frequency_performance()
         self.nodes.disable_idle_state()
+        self.nodes.enable_turboboost()
         return self
 
     def run_exp(self):
