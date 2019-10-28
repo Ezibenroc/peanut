@@ -415,8 +415,10 @@ class Nodes:
 
     def __set_turboboost(self, value):
         assert value in (0, 1)
-        assert self.frequency_information.active_driver == 'intel_pstate'
-        self.write_files(str(1-value), '/sys/devices/system/cpu/intel_pstate/no_turbo')
+        if self.frequency_information.active_driver == 'intel_pstate':
+            self.write_files(str(1-value), '/sys/devices/system/cpu/intel_pstate/no_turbo')
+        else:
+            self.write_files(str(value), '/sys/devices/system/cpu/cpufreq/boost')
 
     def enable_turboboost(self):
         self.__set_turboboost(1)
