@@ -11,6 +11,7 @@ class BLASCalibration(Job):
     expfile_header_in_file = False
     expfile_header = ['operation', 'm', 'n', 'k', 'lda', 'ldb', 'ldc']
     installfile_types = {'warmup_time': int, 'multicore': bool, 'openblas': str, 'matrix_initialization': (str,int,float),
+            'matrix_initialization_mask_size': int,
             'remote_url': str, 'path_in_repo': str, 'token_path': str, 'monitoring': int}
 
     @classmethod
@@ -35,6 +36,10 @@ class BLASCalibration(Job):
                 matrix_init = 'random'
         if matrix_init == 'sequential':
             matrix_init = 'i/(double)(size*size-1)'
+        matrix_mask = install_options['matrix_initialization_mask_size']
+        if matrix_mask not in range(0, 64):
+            logger.error('Wrong value "%s" to use as a bitmask size, should be in [0, 63]' % matrix_mask)
+            matrix_mask = 0
         self.apt_install(
             'build-essential',
             'python3',
@@ -59,8 +64,9 @@ class BLASCalibration(Job):
         self.nodes.run('ln -s libopenblas.so libblas.so', directory='lib')
         patch = None if matrix_init == 'random' else self.initialization_patch(matrix_init)
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration',
-                       checkout='2f2158e4e6e724de7609f061d845f64fe4baf556', patch=patch)
-        self.nodes.run('BLAS_INSTALLATION=%s make calibrate_blas' % self.nodes.working_dir,
+                       checkout='153a4a131f3d9eb28bd31a5b15eba5cb7df86999', patch=patch)
+        make_var = 'CFLAGS="-DMASK_SIZE=%d"' % matrix_mask if matrix_mask else ''
+        self.nodes.run('BLAS_INSTALLATION=%s make calibrate_blas %s' % (self.nodes.working_dir, make_var),
                        directory='platform-calibration/src/calibration')
         if self.nodes.frequency_information.active_driver == 'intel_pstate':
             self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
@@ -179,14 +185,14 @@ class BLASCalibration(Job):
     def initialization_patch(cls, value):
         return r'''
 diff --git a/src/calibration/calibrate_blas.c b/src/calibration/calibrate_blas.c
-index d767886..ae0e377 100644
+index 43df27b..1338b97 100644
 --- a/src/calibration/calibrate_blas.c
 +++ b/src/calibration/calibrate_blas.c
-@@ -75,7 +75,7 @@ double *allocate_matrix(int size) {
-       exit(errno);
-     }
+@@ -142,7 +142,7 @@ double *allocate_matrix(int size) {
+     assert(x == apply_mask(x, get_mask(0, 0)));
+     assert(x != apply_mask(x, get_mask(0, 1)));
      for(int i = 0; i < size*size; i++) {
--        result[i] = (double)rand()/(double)(RAND_MAX);
+-        result[i] = apply_mask((double)rand()/(double)(RAND_MAX), mask);
 +        result[i] = (double)%s;
      }
      return result;
