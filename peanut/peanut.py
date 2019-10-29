@@ -576,14 +576,14 @@ class Job:
             self.__find_hostnames()
             return list(self.__hostnames)
 
-    def kadeploy(self, env=None, env_version='2019040916'):
+    def kadeploy(self, env=None):
         sleep_time = 15
         assert self.deploy
         env = env or self.deploy
         self.hostnames
         while True:
             try:
-                self.frontend.run('kadeploy3 -k -f %s -e %s --env-version %s' % (self.oar_node_file, env, env_version))
+                self.frontend.run('kadeploy3 -k -f %s -e %s' % (self.oar_node_file, env))
             except RunError as e:
                 t = sleep_time + random.uniform(0, sleep_time/2)
                 logger.warning('Kadeploy error, sleeping for %2.f seconds:\n%s' % (t, e))
