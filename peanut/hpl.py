@@ -46,8 +46,6 @@ class HPL(AbstractHPL):
         if install_options['insert_bcast']:
             self.nodes.write_files(self.hpl_bcast_patch, self.hpl_dir + '/patch.diff')
             self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
-        self.nodes.write_files(self.extra_dgemm_patch, self.hpl_dir + '/patch.diff')
-        self.nodes.run('git apply --whitespace=fix patch.diff', directory=self.hpl_dir)
         self.nodes.write_files(self.makefile, os.path.join(self.hpl_dir, 'Make.Debian'))
         self.nodes.run('make startup arch=Debian', directory=self.hpl_dir)
         while True:
