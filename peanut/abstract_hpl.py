@@ -120,13 +120,15 @@ class AbstractHPL(Job):
     @classmethod
     def gen_exp(cls):
         factors = dict(cls.expfile_sets)
-        factors['matrix_size'] = [100000]
+        factors['matrix_size'] = [250000]
         factors['block_size'] = [2**n for n in range(7, 9)]
         factors['proc_p'] = [32]
         factors['proc_q'] = [32]
         factors['process_per_node'] = [32]
         factors['thread_per_process'] = [1]
         factors['mem_align'] = [8]
+        factors['rfact'] = [2]
+        factors['pfact'] = [1]
         exp = cls.fact_design(factors)
         random.shuffle(exp)
         return exp
