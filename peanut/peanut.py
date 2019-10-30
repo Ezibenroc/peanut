@@ -62,7 +62,7 @@ class Time:
 
     @classmethod
     def parse(cls, val):
-        regex = '(\d\d):(\d\d):(\d\d)'
+        regex = '(\d+):(\d\d):(\d\d)'
         match = re.fullmatch(regex, val)
         if match is None:
             raise ValueError('Wrong format for time %s' % val)
