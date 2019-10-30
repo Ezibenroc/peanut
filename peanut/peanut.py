@@ -67,7 +67,10 @@ class Time:
         if match is None:
             raise ValueError('Wrong format for time %s' % val)
         h, m, s = match.groups()
-        return cls(hours=int(h), minutes=int(m), seconds=int(s))
+        h, m, s = int(h), int(m), int(s)
+        if m >= 60 or s >= 60:
+            raise ValueError('Wrong format for time %s' % val)
+        return cls(hours=h, minutes=m, seconds=s)
 
     @classmethod
     def from_seconds(cls, seconds):
