@@ -111,12 +111,15 @@ class BLASCalibration(Job):
                 command += ' %s %s %s -l 1 -o %s"' % (ldlib, numactl, cmd, filename)
                 self.nodes.run(command, directory=path)
             # Waiting for all the commands to be finished
-            while True:
+            waiting_nodes = list(self.nodes)
+            while len(waiting_nodes) > 0:
+                node = waiting_nodes[0]
                 try:
+                    node.run('tmux ls | grep tmux_blas')
+                except RunError:  # this node has not finished yet
                     time.sleep(60)
-                    self.nodes.run('tmux ls | grep tmux_blas')
-                except RunError:
-                    break
+                else:  # this node has finished, let's remove it
+                    waiting_nodes = waiting_nodes[1:]
             # Adding a core ID column to each file, then merge all the files into a single one
             for core, filename in enumerate(monocore_files):
                 self.nodes.run('awk \'{print $0",%d"}\' %s > tmp && mv tmp %s' % (core, filename, filename), directory=path)
