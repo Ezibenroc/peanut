@@ -116,10 +116,10 @@ class BLASCalibration(Job):
                 node = waiting_nodes[0]
                 try:
                     node.run('tmux ls | grep tmux_blas')
-                except RunError:  # this node has not finished yet
-                    time.sleep(60)
-                else:  # this node has finished, let's remove it
+                except RunError:  # this node has finished, let's remove it
                     waiting_nodes = waiting_nodes[1:]
+                else:  # this node has not finished yet
+                    time.sleep(60)
             # Adding a core ID column to each file, then merge all the files into a single one
             for core, filename in enumerate(monocore_files):
                 self.nodes.run('awk \'{print $0",%d"}\' %s > tmp && mv tmp %s' % (core, filename, filename), directory=path)
