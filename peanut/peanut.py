@@ -97,7 +97,8 @@ class Nodes:
             self.__history = parent_nodes.__history
 
     def __iter__(self):
-        yield from self.nodes
+        for host in self.nodes:
+            yield Nodes([host], name=host.host, working_dir=self.working_dir, parent_nodes=self)
 
     @property
     def history(self):
@@ -988,10 +989,10 @@ class Job:
         self.director.run('ssh-keygen -b 2048 -t rsa -f .ssh/id_rsa -q -N ""', directory='/root')
         tmp_file = tempfile.NamedTemporaryFile(dir='.')
         self.director.get('/root/.ssh/id_rsa.pub', tmp_file.name)
-        self.orchestra.put(tmp_file.name, '/tmp/id_rsa.pub')
+        self.nodes.put(tmp_file.name, '/tmp/id_rsa.pub')
         tmp_file.close()
-        self.orchestra.run('cat /tmp/id_rsa.pub >> .ssh/authorized_keys', directory='/root')
-        for host in self.orchestra.hostnames:
+        self.nodes.run('cat /tmp/id_rsa.pub >> .ssh/authorized_keys', directory='/root')
+        for host in self.nodes.hostnames:
             self.director.run('ssh -o "StrictHostKeyChecking no" %s hostname' % host, directory='/root')
             short_target = host[:host.find('.')]
             self.director.run('ssh -o "StrictHostKeyChecking no" %s hostname' % short_target, directory='/root')
