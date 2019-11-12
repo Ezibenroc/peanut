@@ -615,7 +615,7 @@ class Job:
     @classmethod
     def oarsub(cls, frontend, constraint, walltime, nb_nodes, *,
                deploy=False, queue=None, script=None, container=None):
-        name = random.choice('☕🥐')
+        name = cls.__name__
         constraint = '%s/nodes=%s,walltime=%s' % (
             constraint, nb_nodes, walltime)
         deploy_str = '-t deploy ' if deploy else '-t allow_classic_ssh'
