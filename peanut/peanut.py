@@ -1277,7 +1277,7 @@ class InstallFile(AbstractFile):
 
     def parse_content(self):
         assert self.extension == 'yaml'
-        self.content = yaml.load(self.raw_content)
+        self.content = yaml.load(self.raw_content, Loader=yaml.SafeLoader)
         for h in self.types:
             if h not in self.content:
                 raise ValueError('Key "%s" not found in file %s' % (h, self.filename))
