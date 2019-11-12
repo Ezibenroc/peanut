@@ -616,7 +616,7 @@ class Job:
     def oarsub(cls, frontend, constraint, walltime, nb_nodes, *,
                deploy=False, queue=None, script=None, container=None):
         name = random.choice('☕🥐')
-        constraint = '%s/nodes=%d,walltime=%s' % (
+        constraint = '%s/nodes=%s,walltime=%s' % (
             constraint, nb_nodes, walltime)
         deploy_str = '-t deploy ' if deploy else '-t allow_classic_ssh'
         queue_str = '-q %s ' % queue if queue else ''
@@ -1034,6 +1034,10 @@ class Job:
             if n <= 0:
                 raise ValueError('Not a positive integer.')
             return n
+        def int_nodes(n):
+            if n.lower() in ('best', 'max'):
+                return 'BEST'
+            return positive_int(n)
         parser = argparse.ArgumentParser(description='Peanut, the tiny job runner')
         parser.add_argument('--version', action='version',
                             version='%(prog)s {version}'.format(version=__version__))
@@ -1049,7 +1053,7 @@ class Job:
         group.add_argument('--nodes', help='Nodes for the experiment.', type=str, nargs='+')
         group.add_argument('--jobid', help='Job ID for the experiment, of the form site:ID.', type=cls.parse_jobid)
         sp_run.add_argument('--walltime', help='Duration of the experiment.', type=Time.parse, default=Time(hours=1))
-        sp_run.add_argument('--nbnodes', help='Number of nodes for the experiment.', type=positive_int, default=1)
+        sp_run.add_argument('--nbnodes', help='Number of nodes for the experiment.', type=int_nodes, default=1)
         sp_run.add_argument('--container', help='Container job for this sub-job.', type=positive_int, default=None)
         sp_run.add_argument('--expfile', help='File which describes the experiment.',
                             nargs='+', type=lambda f: ExpFile(filename=f, types=cls.expfile_types,
