@@ -24,7 +24,6 @@ class BLASCalibration(Job):
             raise ValueError('Error with experiment %s, unknown operation.' % exp)
 
     def setup(self):
-        super().setup()
         assert self.installfile is not None
         install_options = self.installfile.content
         matrix_init = install_options['matrix_initialization']

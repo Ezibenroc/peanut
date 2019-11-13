@@ -22,7 +22,6 @@ class StressTest(Job):
                 raise ValueError('Error with experiment %s, negative %s' % (exp, k))
 
     def setup(self):
-        super().setup()
         self.apt_install(
             'build-essential',
             'python3',

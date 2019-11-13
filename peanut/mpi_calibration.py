@@ -19,7 +19,6 @@ class MPICalibration(Job):
             raise ValueError('Error with experiment %s, unknown operation.' % exp)
 
     def setup(self):
-        super().setup()
         self.apt_install(
             'build-essential',
             'python3',

@@ -1157,7 +1157,17 @@ class Job:
         job.installfile = installfile
         return job
 
-    def setup(self):
+    def add_timestamp(self, name, tag):
+        timestamp = self.get_timestamp()
+        key = 'timestamp'
+        if key not in self.information:
+            self.information[key] = {}
+        if name not in self.information[key]:
+            self.information[key][name] = {}
+        self.information[key][name][tag] = timestamp
+
+    def __setup(self):
+        self.add_timestamp('setup', 'start')
         if self.deploy:
             self.kadeploy()
         try:
@@ -1170,15 +1180,31 @@ class Job:
         self.director.run('echo UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA== | base64 -d > %s' % self.archive_name)
         if self.deploy:
             self.send_key()
+        self.setup()
+        self.add_timestamp('setup', 'stop')
 
-    def teardown(self):
+    def __run_exp(self):
+        self.add_timestamp('run_exp', 'start')
+        self.run_exp()
+        self.add_timestamp('run_exp', 'stop')
+
+    def __teardown(self):
+        self.add_timestamp('teardown', 'start')
+        self.teardown()
         try:
             self.register_temperature()
         except RunError:
             logger.warning('No temperature information available.')
+        self.add_timestamp('teardown', 'stop')  # we need to add the timestamp here to have it in the archive
         self.add_information_to_archive()
         self.get_archive()
         self.oardel()
+
+    def setup(self):
+        pass
+
+    def teardown(self):
+        pass
 
     def run_exp(self):
         raise NotImplementedError()
@@ -1215,11 +1241,11 @@ class Job:
         else:
             logger.info('%s with %d nodes' % (job, len(job.hostnames)))
             logger.info('Setting up')
-            job.setup()
+            job.__setup()
             logger.info('Running the experiment')
-            job.run_exp()
+            job.__run_exp()
             logger.info('Tearing down')
-            job.teardown()
+            job.__teardown()
         logger.info('Total time: %.0f seconds' % (time.time() - job.start_time))
 
     @classmethod

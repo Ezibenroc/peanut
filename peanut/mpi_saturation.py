@@ -7,7 +7,6 @@ class MPISaturation(Job):
     expfile_header = []
 
     def setup(self):
-        super().setup()
         self.apt_install(
             'build-essential',
             'zip',

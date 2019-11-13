@@ -7,7 +7,6 @@ class FrequencyGet(Job):
     percentages = list(range(10, 101, 10)) + [1]
 
     def setup(self):
-        super().setup()
         self.apt_install(
             'build-essential',
             'zip',

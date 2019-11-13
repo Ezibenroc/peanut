@@ -29,7 +29,6 @@ class AbstractHPL(Job):
                 raise ValueError('Error with exp %s: wrong value for factor %s (%s).' % (exp, fact, exp[fact]))
 
     def setup(self):
-        super().setup()
         self.apt_install(
             'build-essential',
             'zip',

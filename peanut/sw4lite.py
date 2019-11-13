@@ -6,7 +6,6 @@ from .peanut import Job, logger, RunError
 class SW4lite(Job):
 
     def setup(self):
-        super().setup()
         self.apt_install(
             'build-essential',
             'linux-tools',
