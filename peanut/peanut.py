@@ -328,7 +328,11 @@ class Nodes:
         except AttributeError:
             freq = self.run_unique('cpufreq-info -l').stdout
             min_f, max_f = [int(f) for f in freq.split()]
-            governors = self.run_unique('cpufreq-info -g').stdout.split()
+            # We need this kind of crap because cpufreq-info does not output the governors in the same order...
+            gov_info = list(self.run('cpufreq-info -g').values())
+            gov_info = set([tuple(sorted(result.stdout.split(' '))) for result in gov_info])
+            assert len(gov_info) == 1
+            governors = gov_info.pop()
             active_driver = self.run_unique('cpufreq-info -d').stdout.strip()
             idle_driver = self.run_unique('cat /sys/devices/system/cpu/cpuidle/current_driver').stdout.strip()
             idle_files = self.run_unique('ls /sys/devices/system/cpu/cpu0/cpuidle').stdout.split()
