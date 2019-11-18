@@ -1166,7 +1166,7 @@ class Job:
             self.information[key][name] = {}
         self.information[key][name][tag] = timestamp
 
-    def __setup(self):
+    def _setup(self):
         self.add_timestamp('setup', 'start')
         if self.deploy:
             self.kadeploy()
@@ -1183,12 +1183,12 @@ class Job:
         self.setup()
         self.add_timestamp('setup', 'stop')
 
-    def __run_exp(self):
+    def _run_exp(self):
         self.add_timestamp('run_exp', 'start')
         self.run_exp()
         self.add_timestamp('run_exp', 'stop')
 
-    def __teardown(self):
+    def _teardown(self):
         self.add_timestamp('teardown', 'start')
         self.teardown()
         try:
@@ -1241,11 +1241,11 @@ class Job:
         else:
             logger.info('%s with %d nodes' % (job, len(job.hostnames)))
             logger.info('Setting up')
-            job.__setup()
+            job._setup()
             logger.info('Running the experiment')
-            job.__run_exp()
+            job._run_exp()
             logger.info('Tearing down')
-            job.__teardown()
+            job._teardown()
         logger.info('Total time: %.0f seconds' % (time.time() - job.start_time))
 
     @classmethod
