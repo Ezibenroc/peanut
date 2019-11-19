@@ -786,6 +786,10 @@ class Job:
         self.add_local_to_archive(filename)
         self.nodes.run('rm -rf monitoring')
 
+    def perform_stress(self, stress_duration):
+        self.apt_install('stress')
+        self.nodes.run('stress -c %d -t %ds' % (4*len(self.nodes.cores), stress_duration))
+
     def add_raw_information_to_archive(self):
         for host in self.hostnames:
             self.director.run('mkdir -p information/%s' % host)
@@ -1185,7 +1189,19 @@ class Job:
         self.director.run('echo UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA== | base64 -d > %s' % self.archive_name)
         if self.deploy:
             self.send_key()
+        try:
+            self.monitoring_period = self.installfile.content['monitoring']
+        except (KeyError, AttributeError):  # no installfile or no monitoring key
+            self.monitoring_period = 0
+        try:
+            self.warmup_duration = self.installfile.content['warmup_time']
+        except (KeyError, AttributeError):  # no installfile or no warmup key
+            self.warmup_duration = 0
+        if self.monitoring_period > 0:
+            self.start_monitoring()
         self.setup()
+        if self.warmup_duration > 0:
+            self.perform_stress(self.warmup_duration)
         self.add_timestamp('setup', 'stop')
 
     def _run_exp(self):
@@ -1201,6 +1217,8 @@ class Job:
         except RunError:
             logger.warning('No temperature information available.')
         self.add_timestamp('teardown', 'stop')  # we need to add the timestamp here to have it in the archive
+        if self.monitoring_period > 0:
+            self.stop_monitoring()
         self.add_information_to_archive()
         self.get_archive()
         self.oardel()

@@ -54,7 +54,6 @@ class BLASCalibration(Job):
             'linux-cpupower',
             'numactl',
             'tmux',
-            'stress',
         )
         openblas_version = install_options['openblas']
         self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout=openblas_version)
@@ -84,11 +83,6 @@ class BLASCalibration(Job):
         assert len(self.expfile) == 1
         expfile = self.expfile[0]
         warmup = install_options['warmup_time']
-        if warmup > 0:
-            cmd = 'stress -c %d -t %ds' % (4*len(self.nodes.cores), warmup)
-            self.nodes.run(cmd)
-        if install_options['monitoring'] > 0:
-            self.start_monitoring(period=install_options['monitoring'])
         ldlib = 'LD_LIBRARY_PATH=%s/lib' % self.nodes.working_dir
         cmd = './calibrate_blas -s ./zoo_sizes'
         nb_cores = len(self.nodes.cores)
@@ -132,8 +126,6 @@ class BLASCalibration(Job):
                 node.run('awk \'{print $0",%s"}\' result.csv > %s' % (name, resfile), directory=path)
                 self.director.run("rsync -a '%s:%s' ." % (name, path + '/' + resfile), directory=path)
             self.director.run('cat %s > ./result.csv' % (' '.join(result_files)), directory=path)
-        if install_options['monitoring'] > 0:
-            self.stop_monitoring()
         # Adding a header to the file
         self.nodes.run("sed -i '1s/^/function,m,n,k,lda,ldb,ldc,timestamp,duration,core,hostname\\n/' ./result.csv", directory=path)
         self.add_local_to_archive(path + '/result.csv')

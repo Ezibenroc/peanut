@@ -25,7 +25,6 @@ class HPL(AbstractHPL):
             'openmpi-bin',
             'libopenmpi-dev',
             'net-tools',
-            'stress',
             'python3',
             'tmux',
         )
@@ -67,11 +66,6 @@ class HPL(AbstractHPL):
         install_options = self.installfile.content
         nb_cores = len(self.nodes.cores)
         warmup = install_options['warmup_time']
-        if warmup > 0:
-            cmd = 'stress -c %d -t %ds' % (4*nb_cores, warmup)
-            self.nodes.run(cmd)
-        if install_options['monitoring'] > 0:
-            self.start_monitoring(period=install_options['monitoring'])
         results = []
         start = time.time()
         assert len(self.expfile) == 1
@@ -162,8 +156,6 @@ class HPL(AbstractHPL):
             else:
                 time_info = ''
             logger.debug('Done experiment %d / %d%s' % (i+1, len(expfile), time_info))
-        if install_options['monitoring'] > 0:
-            self.stop_monitoring()
         results = ExpFile(content=results, filename='results.csv')
         self.add_content_to_archive(results.raw_content, 'results.csv')
 
