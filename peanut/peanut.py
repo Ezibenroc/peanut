@@ -763,26 +763,27 @@ class Job:
         self.add_file_to_archive(filename, filename)
 
     def start_monitoring(self, period=1):
-        self.git_clone('https://github.com/Ezibenroc/Stress-Test.git', 'monitoring')
-        command = 'python3 monitoring/basic_monitoring.py --period %d ' % period
-        command += '--temp_output monitoring_temp.csv --freq_output monitoring_freq.csv '
-        command += '--pid_file monitoring_pid'
+        self.apt_install('python3-setuptools')
+        self.git_clone('https://github.com/Ezibenroc/ratatouille.git', 'ratatouille')
+        self.nodes.run('python3 setup.py install', directory='ratatouille')
+        self.nodes.run('ratatouille --git-version')
+        command = 'ratatouille collect -t %d monitoring.csv' % period
         command = 'tmux new-session -d -s tmux_monitoring "%s"' % command
         self.nodes.run(command)
 
     def stop_monitoring(self):
-        self.nodes.run('kill -SIGINT $(cat monitoring_pid)')
-        for filename in ['monitoring_temp.csv', 'monitoring_freq.csv']:
-            if len(self.orchestra.hostnames) > 0:
-                self.orchestra.run('sed -i "1d" %s' % filename)  # removing the header
-                remote_file = os.path.join(self.orchestra.working_dir, filename)
-                all_files = []
-                for i, node in enumerate(self.orchestra.hostnames):
-                    local_file = '%s%d' % (filename, i)
-                    all_files.append(local_file)
-                    self.director.run("rsync -a '%s:%s' %s" % (node, remote_file, local_file))
-                    self.director.run('cat %s >> %s' % (' '.join(all_files), filename))
-            self.add_local_to_archive(filename)
+        self.nodes.run('tmux kill-session -t tmux_monitoring')
+        filename = 'monitoring.csv'
+        if len(self.orchestra.hostnames) > 0:
+            self.orchestra.run('sed -i "1d" %s' % filename)  # removing the header
+            remote_file = os.path.join(self.orchestra.working_dir, filename)
+            all_files = []
+            for i, node in enumerate(self.orchestra.hostnames):
+                local_file = '%s%d' % (filename, i)
+                all_files.append(local_file)
+                self.director.run("rsync -a '%s:%s' %s" % (node, remote_file, local_file))
+                self.director.run('cat %s >> %s' % (' '.join(all_files), filename))
+        self.add_local_to_archive(filename)
         self.nodes.run('rm -rf monitoring')
 
     def add_raw_information_to_archive(self):
