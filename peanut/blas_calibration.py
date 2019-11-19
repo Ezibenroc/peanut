@@ -39,22 +39,6 @@ class BLASCalibration(Job):
         if matrix_mask not in range(0, 64):
             logger.error('Wrong value "%s" to use as a bitmask size, should be in [0, 63]' % matrix_mask)
             matrix_mask = 0
-        self.apt_install(
-            'build-essential',
-            'python3',
-            'python3-dev',
-            'zip',
-            'make',
-            'git',
-            'time',
-            'hwloc',
-            'pciutils',
-            'net-tools',
-            'cpufrequtils',
-            'linux-cpupower',
-            'numactl',
-            'tmux',
-        )
         openblas_version = install_options['openblas']
         self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout=openblas_version)
         self.nodes.run('make -j 64', directory='openblas')

@@ -763,7 +763,6 @@ class Job:
         self.add_file_to_archive(filename, filename)
 
     def start_monitoring(self, period=1):
-        self.apt_install('python3-setuptools')
         self.git_clone('https://github.com/Ezibenroc/ratatouille.git', 'ratatouille')
         self.nodes.run('python3 setup.py install', directory='ratatouille')
         self.nodes.run('ratatouille --git-version')
@@ -1197,6 +1196,23 @@ class Job:
             self.warmup_duration = self.installfile.content['warmup_time']
         except (KeyError, AttributeError):  # no installfile or no warmup key
             self.warmup_duration = 0
+        self.apt_install(
+            'build-essential',
+            'python3',
+            'python3-dev',
+            'python3-setuptools',
+            'zip',
+            'make',
+            'git',
+            'time',
+            'hwloc',
+            'pciutils',
+            'net-tools',
+            'cpufrequtils',
+            'linux-cpupower',
+            'numactl',
+            'tmux',
+        )
         if self.monitoring_period > 0:
             self.start_monitoring()
         self.setup()
