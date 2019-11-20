@@ -20,6 +20,7 @@ import argparse
 import lxml.etree
 import csv
 import hashlib
+import signal
 from .version import __version__, __git_version__
 
 handler = colorlog.StreamHandler()
@@ -624,7 +625,7 @@ class Job:
             constraint, nb_nodes, walltime)
         deploy_str = '-t deploy ' if deploy else '-t allow_classic_ssh'
         queue_str = '-q %s ' % queue if queue else ''
-        cmd = 'oarsub -n "%s" %s%s -l "%s"' % (name, queue_str, deploy_str, constraint)
+        cmd = 'oarsub --checkpoint 120 -n "%s" %s%s -l "%s"' % (name, queue_str, deploy_str, constraint)
         if script:
             cmd += " '%s'" % script
         else:
@@ -980,6 +981,9 @@ class Job:
     def get_archive(self):
         #  If an installfile with a remote_url is specified, try to push the archive.
         #  Otherwise (or if the push fails), copy the archive locally.
+        if 'aborted' in self.information:  # the job has been killed, so let's not push the archive
+            self.director.get(self.archive_name, self.archive_name)
+            return
         try:
             self.installfile.content['remote_url']
         except (AttributeError, KeyError):
@@ -1174,6 +1178,12 @@ class Job:
             self.information[key][name] = {}
         self.information[key][name][tag] = timestamp
 
+    def signal_handler(self, sig, frame):
+        if 'aborted' not in self.information:  # checking that the job has not already received the signal
+            logger.error('Received the checkpoint signal, will grab the archive and terminate immediately.')
+            self.information['aborted'] = True
+            self._teardown()
+
     def _setup(self):
         self.add_timestamp('setup', 'start')
         if self.deploy:
@@ -1279,6 +1289,7 @@ class Job:
             logger.info('%s submitted' % job)
         else:
             logger.info('%s with %d nodes' % (job, len(job.hostnames)))
+            signal.signal(signal.SIGUSR2, job.signal_handler)
             logger.info('Setting up')
             job._setup()
             logger.info('Running the experiment')
