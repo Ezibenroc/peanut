@@ -1224,7 +1224,7 @@ class Job:
             'tmux',
         )
         if self.monitoring_period > 0:
-            self.start_monitoring()
+            self.start_monitoring(self.monitoring_period)
         self.setup()
         if self.warmup_duration > 0:
             self.perform_stress(self.warmup_duration)
