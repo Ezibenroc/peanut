@@ -782,7 +782,7 @@ class Job:
                 local_file = '%s%d' % (filename, i)
                 all_files.append(local_file)
                 self.director.run("rsync -a '%s:%s' %s" % (node, remote_file, local_file))
-                self.director.run('cat %s >> %s' % (' '.join(all_files), filename))
+            self.director.run('cat %s >> %s' % (' '.join(all_files), filename))
         self.add_local_to_archive(filename)
         self.nodes.run('rm -rf monitoring')
 
