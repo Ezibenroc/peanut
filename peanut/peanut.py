@@ -764,7 +764,8 @@ class Job:
         self.add_file_to_archive(filename, filename)
 
     def start_monitoring(self, period=1):
-        self.git_clone('https://github.com/Ezibenroc/ratatouille.git', 'ratatouille')
+        self.git_clone('https://github.com/Ezibenroc/ratatouille.git', 'ratatouille',
+                        checkout='33b8568086fe10ade8e4637f8e588bafef1b3f44')
         self.nodes.run('python3 setup.py install', directory='ratatouille')
         self.nodes.run('ratatouille --git-version')
         command = 'ratatouille collect -t %d monitoring.csv' % period
@@ -1016,6 +1017,8 @@ class Job:
         self.nodes.run('%s %s %s' % (cmd, url, repository_path))
         if checkout:
             self.nodes.run('git checkout %s' % checkout, directory=repository_path)
+        else:
+            logger.warning('No checkout specified for the git clone, using the repository default.')
         git_hash = self.nodes.run_unique('git rev-parse HEAD', directory=repository_path)
         git_hash = git_hash.stdout.strip()
         git_info = {'path': repository_path, 'url': url, 'hash': git_hash}
