@@ -765,8 +765,8 @@ class Job:
 
     def start_monitoring(self, period=1):
         self.git_clone('https://github.com/Ezibenroc/ratatouille.git', 'ratatouille',
-                        checkout='ac7a18564a5d04c45832e09a69a415ce97315600')
-        self.nodes.run('python3 setup.py install', directory='ratatouille')
+                        checkout='5add42bee30f1ffb24640bf1ab1afbc654651281')
+        self.nodes.run('pip3 install .', directory='ratatouille')
         self.nodes.run('ratatouille --git-version')
         command = 'ratatouille collect -t %d monitoring.csv' % period
         command = 'tmux new-session -d -s tmux_monitoring "%s"' % command
@@ -1214,6 +1214,7 @@ class Job:
             'build-essential',
             'python3',
             'python3-dev',
+            'python3-pip',
             'python3-setuptools',
             'zip',
             'make',
