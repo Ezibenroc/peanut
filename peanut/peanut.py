@@ -776,15 +776,13 @@ class Job:
         self.nodes.run('tmux kill-session -t tmux_monitoring')
         filename = 'monitoring.csv'
         if len(self.orchestra.hostnames) > 0:
-            self.nodes.run_unique('head -n 1 monitoring.csv')  # checking that they all have the same header
-            self.orchestra.run('sed -i "1d" %s' % filename)  # removing the header for all except the director
             remote_file = os.path.join(self.orchestra.working_dir, filename)
             all_files = []
-            for i, node in enumerate(self.orchestra.hostnames):
+            for i, node in enumerate(self.nodes.hostnames):
                 local_file = '%s%d' % (filename, i)
                 all_files.append(local_file)
                 self.director.run("rsync -a '%s:%s' %s" % (node, remote_file, local_file))
-            self.director.run('cat %s >> %s' % (' '.join(all_files), filename))
+            self.director.run('ratatouille merge %s %s' % (' '.join(all_files), filename))
         self.add_local_to_archive(filename)
         self.nodes.run('rm -rf monitoring')
 
