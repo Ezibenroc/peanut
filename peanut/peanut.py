@@ -765,7 +765,7 @@ class Job:
 
     def start_monitoring(self, period=1):
         self.git_clone('https://github.com/Ezibenroc/ratatouille.git', 'ratatouille',
-                        checkout='33b8568086fe10ade8e4637f8e588bafef1b3f44')
+                        checkout='ac7a18564a5d04c45832e09a69a415ce97315600')
         self.nodes.run('python3 setup.py install', directory='ratatouille')
         self.nodes.run('ratatouille --git-version')
         command = 'ratatouille collect -t %d monitoring.csv' % period
@@ -776,7 +776,8 @@ class Job:
         self.nodes.run('tmux kill-session -t tmux_monitoring')
         filename = 'monitoring.csv'
         if len(self.orchestra.hostnames) > 0:
-            self.orchestra.run('sed -i "1d" %s' % filename)  # removing the header
+            self.nodes.run_unique('head -n 1 monitoring.csv')  # checking that they all have the same header
+            self.orchestra.run('sed -i "1d" %s' % filename)  # removing the header for all except the director
             remote_file = os.path.join(self.orchestra.working_dir, filename)
             all_files = []
             for i, node in enumerate(self.orchestra.hostnames):
