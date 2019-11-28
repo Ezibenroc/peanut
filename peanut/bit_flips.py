@@ -43,6 +43,7 @@ class BitFlips(Job):
 
             numactl_str = 'numactl --physcpubind=%d --localalloc'
             monocore_files = []
+            self.add_timestamp('sub_exp_start', i)
             for i in cores:
                 numactl = numactl_str % i
                 filename = 'result_%d.csv' % i
@@ -62,6 +63,7 @@ class BitFlips(Job):
                 else:  # this node has not finished yet
                     time.sleep(60)
 
+            self.add_timestamp('sub_exp_stop', i)
             self.nodes.run('cat %s > ./result.csv' % (' '.join(monocore_files)), directory=path)
             # Adding a hostname column to each file
             result_files = []
