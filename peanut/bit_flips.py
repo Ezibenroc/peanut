@@ -4,9 +4,10 @@ from .peanut import Job, logger, RunError
 
 
 class BitFlips(Job):
-    expfile_types = {'mask_size': int, 'outer_loop': int, 'inner_loop': int, 'monitoring': int, 'sleep_time': int,
+    expfile_types = {'mask_size': int, 'outer_loop': int, 'inner_loop': int, 'sleep_time': int,
                      'cores': str}
     expfile_header_in_file = True
+    installfile_types = {'monitoring': int}
 
     @classmethod
     def check_exp(cls, exp):
@@ -91,7 +92,6 @@ class BitFlips(Job):
             'outer_loop': 1000,
             'inner_loop': 10000000,
             'sleep_time': 1,
-            'monitoring': 1,
             'cores': ' '.join(str(n) for n in range(32))
         }
         experiment = []
