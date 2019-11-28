@@ -1,5 +1,6 @@
 import os
-from .peanut import Job, logger
+import time
+from .peanut import Job, logger, RunError
 
 
 class BitFlips(Job):
@@ -23,7 +24,7 @@ class BitFlips(Job):
 
     def setup(self):
         self.git_clone('https://github.com/Ezibenroc/Stress-Test', 'stress-test',
-                       checkout='792cd73816889ff38f392529dd3786c6e93d4299')
+                       checkout='17e7f45ee7ab868a270473cbea9c2be45007b555')
         self.nodes.run('make test_flips', directory='stress-test')
         self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
         self.nodes.disable_hyperthreading()
@@ -34,7 +35,8 @@ class BitFlips(Job):
     def run_exp(self):
         assert len(self.expfile) == 1
         expfile = self.expfile[0]
-        for i, exp in enumerate(expfile):
+        path = '/tmp/stress-test'
+        for exp_id, exp in enumerate(expfile):
             cores = [int(c) for c in exp['cores'].split()]
             possible_cores = sum(self.nodes.cores, [])  # aggregating the list of lists
             diff = set(cores) - set(possible_cores)
@@ -43,13 +45,13 @@ class BitFlips(Job):
 
             numactl_str = 'numactl --physcpubind=%d --localalloc'
             monocore_files = []
-            self.add_timestamp('sub_exp_start', i)
-            for i in cores:
-                numactl = numactl_str % i
-                filename = 'result_%d.csv' % i
+            self.add_timestamp('sub_exp_start', exp_id)
+            for core_id in cores:
+                numactl = numactl_str % core_id
+                filename = 'result_%d.csv' % core_id
                 monocore_files.append(filename)
-                cmd = './test_flips %s %d %d %d"' % (filename, exp['outer_loop'], exp['inner_loop'], i)
-                command = 'tmux new-session -d -s tmux_exp_%d' % i
+                cmd = './test_flips %s %d %d %d %d' % (filename, exp['mask_size'], exp['outer_loop'], exp['inner_loop'], core_id)
+                command = 'tmux new-session -d -s tmux_exp_%d' % core_id
                 command += ' "%s %s"' % (numactl, cmd)
                 self.nodes.run(command, directory=path)
             # Waiting for all the commands to be finished
@@ -63,7 +65,7 @@ class BitFlips(Job):
                 else:  # this node has not finished yet
                     time.sleep(60)
 
-            self.add_timestamp('sub_exp_stop', i)
+            self.add_timestamp('sub_exp_stop', exp_id)
             self.nodes.run('cat %s > ./result.csv' % (' '.join(monocore_files)), directory=path)
             # Adding a hostname column to each file
             result_files = []
@@ -73,11 +75,12 @@ class BitFlips(Job):
                 result_files.append(resfile)
                 node.run('awk \'{print $0",%s"}\' result.csv > %s' % (name, resfile), directory=path)
                 self.director.run("rsync -a '%s:%s' ." % (name, path + '/' + resfile), directory=path)
-            output_file = './result_%d.csv' % i
+            output_file = './result_%d.csv' % exp_id
             self.director.run('cat %s > %s' % (' '.join(result_files), output_file), directory=path)
             # Adding a header to the file
             self.nodes.run("sed -i '1s/^/timestamp,duration,core,hostname\\n/' %s" % output_file, directory=path)
             self.add_local_to_archive(path + '/%s' % output_file)
+            time.sleep(exp['sleep_time'])
 
 
     @classmethod
