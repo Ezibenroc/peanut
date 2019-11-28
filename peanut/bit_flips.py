@@ -3,21 +3,21 @@ from .peanut import Job, logger
 
 
 class BitFlips(Job):
-    expfile_types = {'mode': str, 'outer_loop': int, 'inner_loop': int, 'monitoring': int, 'sleep_time': int,
+    expfile_types = {'mask_size': int, 'outer_loop': int, 'inner_loop': int, 'monitoring': int, 'sleep_time': int,
                      'cores': str}
     expfile_header_in_file = True
 
     @classmethod
     def check_exp(cls, exp):
         for k, v in exp.items():
-            if k == 'mode':
-                if v not in ('random', 'equal', 'adversarial'):
-                    raise ValueError('Error with experiment %s, unknown mode "%s"' % (exp, v))
-            elif k == 'cores':
+            if k == 'cores':
                 try:
                     [int(c) for c in v.split()]
                 except ValueError:
                     raise ValueError('Error with experiment %s, unparsable core list %s' % (exp, k))
+            elif k == 'mask_size':
+                if v not in range(0, 54):
+                    raise ValueError('The mask size must be in the interval [0, 53]')
             elif v < 0:
                 raise ValueError('Error with experiment %s, negative %s' % (exp, k))
 
@@ -82,7 +82,7 @@ class BitFlips(Job):
     def gen_exp(cls):
         import random
         exp = {
-            'mode': 'none',
+            'mask_size':  -1,
             'outer_loop': 1000,
             'inner_loop': 10000000,
             'sleep_time': 1,
@@ -90,9 +90,9 @@ class BitFlips(Job):
             'cores': ' '.join(str(n) for n in range(32))
         }
         experiment = []
-        for mode in ['adversarial', 'random', 'equal']:
+        for size in range(54):
             tmp = dict(exp)
-            tmp['mode'] = mode
+            tmp['mask_size'] = size
             experiment.append(tmp)
         random.shuffle(experiment)
         return experiment
