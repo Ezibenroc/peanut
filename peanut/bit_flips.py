@@ -7,7 +7,7 @@ class BitFlips(Job):
     expfile_types = {'mask_size': int, 'outer_loop': int, 'inner_loop': int, 'sleep_time': int,
                      'cores': str}
     expfile_header_in_file = True
-    installfile_types = {'monitoring': int}
+    installfile_types = {'monitoring': int, 'AVX2': bool}
 
     @classmethod
     def check_exp(cls, exp):
@@ -24,9 +24,15 @@ class BitFlips(Job):
                 raise ValueError('Error with experiment %s, negative %s' % (exp, k))
 
     def setup(self):
+        assert self.installfile is not None
+        install_options = self.installfile.content
         self.git_clone('https://github.com/Ezibenroc/Stress-Test', 'stress-test',
-                       checkout='17e7f45ee7ab868a270473cbea9c2be45007b555')
-        self.nodes.run('make test_flips', directory='stress-test')
+                       checkout='511a06b1ce6321c402b321f4607e4cb57bc17cff')
+        if install_options['AVX2']:
+            make_option = ' CFLAGS="-DAVX2"'
+        else:
+            make_option = ''
+        self.nodes.run('make %s test_flips' % make_option, directory='stress-test')
         self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
         self.nodes.disable_hyperthreading()
         self.nodes.set_frequency_information_pstate(min_perf_pct=100, max_perf_pct=100)
@@ -90,12 +96,13 @@ class BitFlips(Job):
         exp = {
             'mask_size':  -1,
             'outer_loop': 1000,
-            'inner_loop': 10000000,
-            'sleep_time': 1,
+            'inner_loop': 50000000,
+            'sleep_time': 60,
             'cores': ' '.join(str(n) for n in range(32))
         }
         experiment = []
-        for size in range(54):
+#       for size in range(54):
+        for size in [0, 25, 53]:
             tmp = dict(exp)
             tmp['mask_size'] = size
             experiment.append(tmp)
