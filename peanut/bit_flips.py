@@ -27,7 +27,7 @@ class BitFlips(Job):
         assert self.installfile is not None
         install_options = self.installfile.content
         self.git_clone('https://github.com/Ezibenroc/Stress-Test', 'stress-test',
-                       checkout='511a06b1ce6321c402b321f4607e4cb57bc17cff')
+                       checkout='f5fd93f5c5d14f91f384986880c96562652ce20e')
         if install_options['AVX2']:
             make_option = ' CFLAGS="-DAVX2"'
         else:
