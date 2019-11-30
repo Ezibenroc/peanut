@@ -27,7 +27,7 @@ class BitFlips(Job):
         assert self.installfile is not None
         install_options = self.installfile.content
         self.git_clone('https://github.com/Ezibenroc/Stress-Test', 'stress-test',
-                       checkout='f5fd93f5c5d14f91f384986880c96562652ce20e')
+                       checkout='3b4e66ff21d85b30b5687daed6647f65ca243ca9')
         if install_options['AVX2']:
             make_option = ' CFLAGS="-DAVX2"'
         else:
@@ -96,15 +96,17 @@ class BitFlips(Job):
         exp = {
             'mask_size':  -1,
             'outer_loop': 1000,
-            'inner_loop': 50000000,
-            'sleep_time': 60,
+            'inner_loop': 250000000,
+            'sleep_time': 0,
             'cores': ' '.join(str(n) for n in range(32))
         }
         experiment = []
 #       for size in range(54):
-        for size in [0, 25, 53]:
+        for size in [0, 10, 20, 30, 40, 53]:
             tmp = dict(exp)
             tmp['mask_size'] = size
             experiment.append(tmp)
+        copy = list(experiment)
         random.shuffle(experiment)
-        return experiment
+        random.shuffle(copy)
+        return experiment + copy
