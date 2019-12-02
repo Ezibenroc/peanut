@@ -27,12 +27,13 @@ class BitFlips(Job):
         assert self.installfile is not None
         install_options = self.installfile.content
         self.git_clone('https://github.com/Ezibenroc/Stress-Test', 'stress-test',
-                       checkout='3b4e66ff21d85b30b5687daed6647f65ca243ca9')
+                       checkout='953e66e152f0ab08953deea88dd4feb9bf587c56')
         if install_options['AVX2']:
             make_option = ' CFLAGS="-DAVX2"'
         else:
             make_option = ''
         self.nodes.run('make %s test_flips' % make_option, directory='stress-test')
+        self.nodes.run('objdump -d test_flips | grep vfmadd231pd -A 10 -B 10', directory='stress-test')
         self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
         self.nodes.disable_hyperthreading()
         self.nodes.set_frequency_information_pstate(min_perf_pct=100, max_perf_pct=100)
@@ -85,7 +86,7 @@ class BitFlips(Job):
             output_file = './result_%d.csv' % exp_id
             self.director.run('cat %s > %s' % (' '.join(result_files), output_file), directory=path)
             # Adding a header to the file
-            self.nodes.run("sed -i '1s/^/timestamp,duration,core,hostname\\n/' %s" % output_file, directory=path)
+            self.nodes.run("sed -i '1s/^/timestamp,duration,nb_flop,core,hostname\\n/' %s" % output_file, directory=path)
             self.add_local_to_archive(path + '/%s' % output_file)
             time.sleep(exp['sleep_time'])
 
