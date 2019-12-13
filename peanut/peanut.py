@@ -460,7 +460,7 @@ class Job:
     expfile_header_in_file = True
     installfile_types = {}
     auto_oardel = False
-    deployment_images = ['debian9-x64-%s' % mode for mode in ['min', 'base', 'nfs', 'big']]
+    deployment_images = ['debian%d-x64-%s' % (version, mode) for version in [9, 10] for mode in ['min', 'base', 'nfs', 'big']]
     clusters = {
         'grenoble': ['dahu', 'yeti'],
         'lyon': ['sagittaire', 'hercule', 'orion', 'taurus', 'nova'],
