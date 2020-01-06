@@ -115,7 +115,22 @@ class BLASCalibration(Job):
         self.add_local_to_archive(path + '/result.csv')
 
     @classmethod
-    def gen_exp(cls, max_prod=int(1e10), max_size=15500):
+    def gen_exp(cls, max_prod=int(1e10), max_size=15500, fixed_sizes={}):
+        '''
+        Generate a random sequence of experiments, list of tuples (m,n,k,lda,ldb,ldc) such that:
+        - The product m*n*k is regularly and uniformly distributed in [1, max_prod] (with some randomness).
+        - All the elements of the tuple are bounded by max_size.
+        - A subset of (m, n, k) can be fixed with the argument fixed_sizes (e.g. fixed_sizes={'k': 128}).
+        '''
+        assert set(fixed_sizes.keys()) <= {'m', 'n', 'k'}
+        assert all([isinstance(val, int) for val in fixed_sizes.values()])
+        # Replacing the parameter name by its index (m->0, n->1, k->2)
+        parameters = {k:v for k, v in zip('mnk', range(3))}
+        fixed_sizes = {parameters[k]:v for k, v in fixed_sizes.items()}
+        base_sizes = [-1]*3
+        for idx,size in fixed_sizes.items():
+            base_sizes[idx] = size
+        non_fixed_indices = list(sorted(set(range(3)) - set(fixed_sizes.keys())))
 
         def get_sizes(N, target_product):
             '''
@@ -150,9 +165,21 @@ class BLASCalibration(Job):
         products = list(range(max_prod, 10, -max_prod//30))
         for i in range(len(products)):
             products[i] += random.randint(-max_prod//1000, max_prod//1000)
+
+        nb_fixed = len(fixed_sizes)
+        prod_fixed = 1
+        for size in fixed_sizes.values():
+            prod_fixed *= size
+
         sizes = []
         for prod in products:
-            sizes.extend(get_batch(3, 3, prod, max_size))
+            sizes.extend(get_batch(3, 3-nb_fixed, round(prod/prod_fixed), max_size))
+        for i, curr_size in enumerate(sizes):
+            tmp = list(base_sizes)
+            for idx, s in zip(non_fixed_indices, curr_size):
+                tmp[idx] = s
+            sizes[i] = tmp
+
         # Adding special sizes
         sizes.append((2048, 2048, 2048))
         for i in range(1, 5):
