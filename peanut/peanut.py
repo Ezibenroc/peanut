@@ -462,7 +462,7 @@ class Job:
     auto_oardel = False
     deployment_images = ['debian%d-x64-%s' % (version, mode) for version in [9, 10] for mode in ['min', 'base', 'nfs', 'big']]
     clusters = {
-        'grenoble': ['dahu', 'yeti'],
+        'grenoble': ['dahu', 'yeti', 'troll'],
         'lyon': ['sagittaire', 'hercule', 'orion', 'taurus', 'nova'],
         'nancy': ['griffon', 'graphene', 'graphite', 'grimoire', 'grisou', 'graphique', 'graoully', 'grimani', 'grele',
                   'grvingt', 'gros'],
@@ -474,7 +474,7 @@ class Job:
     }
     sites = {cluster: site for site, cluster_list in clusters.items() for cluster in cluster_list}
     special_clusters = {
-        'testing': [],
+        'testing': ['troll'],
         'production': ['graphique', 'graoully', 'grimani', 'grele', 'grvingt'],
     }
     queues = {cluster: queue for queue, cluster_list in special_clusters.items() for cluster in cluster_list}
