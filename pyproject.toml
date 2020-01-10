@@ -6,11 +6,12 @@ authors = ["Tom Cornebize <tom.cornebize@univ-grenoble-alpes.fr>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = ">= 3.4"
+python = ">= 3.5"
 Fabric = "^2.4"
 colorlog = "^4.0"
 PyYAML = "^5.1"
 lxml = "^4.4"
+cashew = { file = "cashew-0.0.0-py3-none-any.whl" }
 
 [tool.poetry.dev-dependencies]
 ipython = "^7.7"
