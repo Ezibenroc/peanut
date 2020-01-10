@@ -1400,6 +1400,9 @@ class ExpFile(AbstractFile):
             f.write(self.raw_content)
 
     def parse_content(self):
+        if self.extension == 'yaml':
+            self.content = yaml.load(self.raw_content, Loader=yaml.SafeLoader)
+            return
         if self.extension != 'csv':
             return
         assert self.header or self.header_in_file

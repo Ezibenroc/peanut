@@ -69,6 +69,59 @@ def parse_smpi(output):
     )
 
 
+def model_to_c_code(model):
+    cols = ['intercept', 'mnk', 'mn', 'mk', 'nk']
+    cols = cols + ['%s_residual' % c for c in cols]
+    def get_reg(reg, residual):
+        if residual:
+            reg = {k[:-9]: v for k, v in reg.items() if k.endswith('_residual')}
+        else:
+            reg = {k: v for k, v in reg.items() if not k.endswith('_residual')}
+        return reg
+
+    def model_str(reg, residual=False):
+        reg = get_reg(reg, residual)
+        parameters = []
+        for name, param in reg.items():
+            if param == 0:
+                continue
+            if name != 'intercept':
+                parameters.append('%e*%s' % (param, name))
+            else:
+                parameters.append('%e' % reg[name])
+        return ' + '.join(parameters)
+
+    def __return_stmt(reg):
+        mu    = model_str(reg, False)
+        sigma = model_str(reg, True)
+        result  = '        mu    = %s;\n' % mu
+        result += '        sigma = %s;\n' % sigma
+        result += '        return mu + random_halfnormal_shifted(0, sigma);'
+        return result
+
+    def __reg_to_c(reg):
+        tmp = {c:reg[c] for c in cols}
+        return '''    case %d: // node %d\n%s''' % (reg['cpu'], reg['node'], __return_stmt(tmp))
+
+    def reg_to_c(all_reg):
+        result = [__reg_to_c(reg) for reg in all_reg]
+        return '\n'.join(result)
+
+    def compute_mean_reg(reg):
+        mean_reg = {}
+        for var in cols:
+            mean_reg[var] = sum([tmp[var] for tmp in reg]) / len(reg)
+        return mean_reg
+
+    def dump_reg(all_reg):
+        reg_code = reg_to_c(all_reg)
+        reg_code_default = __return_stmt(compute_mean_reg(all_reg))
+        reg_code = 'double mu, sigma;\nswitch(get_cpuid()) {\n%s\n    default:\n%s\n}' % (reg_code, reg_code_default)
+        return reg_code
+
+    return dump_reg(model)
+
+
 class SMPIHPL(AbstractHPL):
     installfile_types = {'stochastic_network': bool, 'stochastic_cpu': bool, 'polynomial_dgemm': bool,
                          'heterogeneous_dgemm': bool, 'disable_hpl_kernels': bool,
@@ -78,6 +131,8 @@ class SMPIHPL(AbstractHPL):
     def setup(self):
         super().setup()
         assert self.installfile is not None
+        assert len(self.expfile) == 3
+        assert {f.extension for f in self.expfile} == {'xml', 'csv', 'yaml'}
         install_options = self.installfile.content
         self.apt_install('python3', 'libboost-dev', 'pajeng')
         self.git_clone('https://github.com/Ezibenroc/memwatch.git', 'memwatch')
@@ -136,16 +191,12 @@ class SMPIHPL(AbstractHPL):
         self.nodes.write_files('1', '/proc/sys/vm/nr_hugepages')
 
     def run_exp(self):
-        assert self.installfile is not None
         install_options = self.installfile.content
         results = []
-        assert len(self.expfile) == 2
-        platform = [f for f in self.expfile if f.extension == 'xml']
-        assert len(platform) == 1
-        platform = TopoFile(platform[0])
-        expfile = [f for f in self.expfile if f.extension != 'xml']
-        assert len(expfile) == 1
-        expfile = expfile[0]
+        files = {f.extension: f for f in self.expfile}
+        platform = files['xml']
+        expfile = files['csv']
+        dgemm_model = files['yaml'].content
         nb_cores = platform.core
         self.nodes.write_files(platform.expfile.raw_content, os.path.join(self.hpl_dir, 'bin/SMPI/platform.xml'))
         self.nodes.write_files('\n'.join(platform.hostnames), os.path.join(self.hpl_dir, 'bin/SMPI/hosts.txt'))
