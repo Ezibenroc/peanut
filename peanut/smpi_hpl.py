@@ -101,7 +101,7 @@ def model_to_c_code(model):
 
     def __reg_to_c(reg):
         tmp = {c:reg[c] for c in cols}
-        return '''    case %d: // node %d\n%s''' % (reg['cpu'], reg['node'], __return_stmt(tmp))
+        return '''    case %d: // node %d\n%s''' % (reg['cpu_id'], reg['node'], __return_stmt(tmp))
 
     def reg_to_c(all_reg):
         result = [__reg_to_c(reg) for reg in all_reg]

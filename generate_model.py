@@ -30,6 +30,8 @@ def compute_reg(df):
             del tmp[key]
     result['info']['experiment_date'] = str(datetime.datetime.fromtimestamp(result['info']['start_time']))
     del result['info']['start_time']
+    for tmp in reg:
+        tmp['cpu_id'] = 2*tmp['node'] + tmp['cpu']  # see the function get_cpuid() in HPL_dgemm.c
     result['model'] = reg
     return result
 
