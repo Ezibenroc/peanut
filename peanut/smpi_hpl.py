@@ -134,9 +134,8 @@ class SMPIHPL(AbstractHPL):
         assert {f.extension for f in self.expfile} == {'xml', 'csv', 'yaml'}
         install_options = self.installfile.content
         files = {f.extension: f for f in self.expfile}
-        platform = files['xml']
         expfile = files['csv']
-        dgemm_model = files['yaml'].content
+        dgemm_model = files['yaml'].content['model']
         dgemm_c = model_to_c_code(dgemm_model)
         self.add_content_to_archive(dgemm_c, 'dgemm_model.c')
         self.apt_install('python3', 'libboost-dev', 'pajeng')
@@ -188,9 +187,8 @@ class SMPIHPL(AbstractHPL):
         install_options = self.installfile.content
         results = []
         files = {f.extension: f for f in self.expfile}
-        platform = files['xml']
+        platform = TopoFile(files['xml'])
         expfile = files['csv']
-        dgemm_model = files['yaml'].content
         nb_cores = platform.core
         self.nodes.write_files(platform.expfile.raw_content, os.path.join(self.hpl_dir, 'bin/SMPI/platform.xml'))
         self.nodes.write_files('\n'.join(platform.hostnames), os.path.join(self.hpl_dir, 'bin/SMPI/hosts.txt'))
