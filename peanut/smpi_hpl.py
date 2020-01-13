@@ -123,9 +123,8 @@ def model_to_c_code(model):
 
 
 class SMPIHPL(AbstractHPL):
-    installfile_types = {'stochastic_network': bool, 'stochastic_cpu': bool, 'polynomial_dgemm': bool,
-                         'heterogeneous_dgemm': bool, 'disable_hpl_kernels': bool,
-                         'disable_nondgemm_randomness': bool, 'cluster': str,
+    installfile_types = {'stochastic_network': bool, 'stochastic_cpu': bool, 'disable_hpl_kernels': bool,
+                         'disable_nondgemm_randomness': bool,
                          **AbstractHPL.installfile_types}
 
     def setup(self):
@@ -134,6 +133,12 @@ class SMPIHPL(AbstractHPL):
         assert len(self.expfile) == 3
         assert {f.extension for f in self.expfile} == {'xml', 'csv', 'yaml'}
         install_options = self.installfile.content
+        files = {f.extension: f for f in self.expfile}
+        platform = files['xml']
+        expfile = files['csv']
+        dgemm_model = files['yaml'].content
+        dgemm_c = model_to_c_code(dgemm_model)
+        self.add_content_to_archive(dgemm_c, 'dgemm_model.c')
         self.apt_install('python3', 'libboost-dev', 'pajeng')
         self.git_clone('https://github.com/Ezibenroc/memwatch.git', 'memwatch')
         if install_options['stochastic_network']:
@@ -144,22 +149,10 @@ class SMPIHPL(AbstractHPL):
                        checkout='a6f883f0e28e60a805227007ec71cac80bced118', patch=simgrid_patch)
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
-        if install_options['cluster'] == 'paravance':
-            hpl_branch = 'paravance_model'
-        else:
-            assert install_options['cluster'] == 'dahu'
-            if not install_options['heterogeneous_dgemm']:
-                hpl_branch = 'homogeneous_dgemm'
-            else:
-                if install_options['polynomial_dgemm']:
-                    hpl_branch = 'heterogeneous_polynomial_dgemm'
-                else:
-                    hpl_branch = 'heterogeneous_linear_dgemm'
+        hpl_branch = 'generic_model'
         patches = [self.makefile_patch]
         if not install_options['stochastic_cpu']:
             patches.append(self.no_noise_patch)
-        if not install_options['polynomial_dgemm'] and not install_options['heterogeneous_dgemm']:
-            patches.append(self.linear_dgemm_patch)
         if install_options['terminate_early']:
             patches.append(self.hpl_early_termination_patch)
         if install_options['insert_bcast']:
@@ -174,6 +167,7 @@ class SMPIHPL(AbstractHPL):
         options = '-DSMPI_OPTIMIZATION'
         if install_options['trace_execution']:
             options += ' -DSMPI_MEASURE'
+        self.nodes.write_files(dgemm_c, os.path.join(self.hpl_dir, 'src/blas/dgemm_model.c'))
         while True:
             try:
                 self.nodes.run('make SMPI_OPTS="%s" arch=SMPI' % options, directory=self.hpl_dir)
