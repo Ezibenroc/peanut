@@ -1324,10 +1324,9 @@ class Job:
     @classmethod
     def check_expfile(cls, expfile):
         for f in expfile:
-            if not f.content:
-                continue
-            for exp in f:
-                cls.check_exp(exp)
+            if f.extension == 'csv':
+                for exp in f:
+                    cls.check_exp(exp)
 
 
 class AbstractFile:
