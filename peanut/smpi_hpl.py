@@ -89,6 +89,8 @@ def model_to_c_code(model):
                 parameters.append('%e*%s' % (param, name))
             else:
                 parameters.append('%e' % reg[name])
+        if len(parameters) == 0:
+            parameters = ['0']
         return ' + '.join(parameters)
 
     def __return_stmt(reg):
