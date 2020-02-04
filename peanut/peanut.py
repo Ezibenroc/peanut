@@ -474,7 +474,7 @@ class Job:
     }
     sites = {cluster: site for site, cluster_list in clusters.items() for cluster in cluster_list}
     special_clusters = {
-        'testing': ['troll'],
+        'testing': [],
         'production': ['graphique', 'graoully', 'grimani', 'grele', 'grvingt'],
     }
     queues = {cluster: queue for queue, cluster_list in special_clusters.items() for cluster in cluster_list}
