@@ -46,7 +46,7 @@ class BLASCalibration(Job):
         self.nodes.run('ln -s libopenblas.so libblas.so', directory='lib')
         patch = None if matrix_init == 'random' else self.initialization_patch(matrix_init)
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration',
-                       checkout='153a4a131f3d9eb28bd31a5b15eba5cb7df86999', patch=patch)
+                       checkout='29084860626fd520e3d661a4bc28f8f8a094e9d1', patch=patch)
         make_var = 'CFLAGS="-DMASK_SIZE=%d"' % matrix_mask if matrix_mask else ''
         self.nodes.run('BLAS_INSTALLATION=%s make calibrate_blas %s' % (self.nodes.working_dir, make_var),
                        directory='platform-calibration/src/calibration')
