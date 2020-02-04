@@ -73,10 +73,11 @@ class BLASCalibration(Job):
         path = '/tmp/platform-calibration/src/calibration'
         self.nodes.write_files(expfile.raw_content, path + '/zoo_sizes')
         if install_options['multicore']:
-            self.nodes.run('OMP_NUM_THREADS=%d %s %s -o ./result.csv' % (nb_cores, ldlib, cmd),
+            filename = './result.csv'
+            self.nodes.run('OMP_NUM_THREADS=%d %s %s -o %s' % (nb_cores, ldlib, cmd, filename),
                            directory=path)
             # Adding a column "all" at the end of the CSV, representing the cores used
-            self.nodes.run('awk \'{print $0, "all"}\' %s > tmp && mv tmp %s' % (filename, filename), directory=path)
+            self.nodes.run('awk \'{print $0",all"}\' %s > tmp && mv tmp %s' % (filename, filename), directory=path)
         else:
             numactl_str = 'numactl --physcpubind=%d --localalloc'
             monocore_files = []
@@ -101,15 +102,15 @@ class BLASCalibration(Job):
             for core, filename in enumerate(monocore_files):
                 self.nodes.run('awk \'{print $0",%d"}\' %s > tmp && mv tmp %s' % (core, filename, filename), directory=path)
             self.nodes.run('cat %s > ./result.csv' % (' '.join(monocore_files)), directory=path)
-            # Adding a hostname column to each file
-            result_files = []
-            for node in self.nodes:
-                name = node.hostnames[0]
-                resfile = 'result_%s.csv' % name
-                result_files.append(resfile)
-                node.run('awk \'{print $0",%s"}\' result.csv > %s' % (name, resfile), directory=path)
-                self.director.run("rsync -a '%s:%s' ." % (name, path + '/' + resfile), directory=path)
-            self.director.run('cat %s > ./result.csv' % (' '.join(result_files)), directory=path)
+        # Adding a hostname column to each file
+        result_files = []
+        for node in self.nodes:
+            name = node.hostnames[0]
+            resfile = 'result_%s.csv' % name
+            result_files.append(resfile)
+            node.run('awk \'{print $0",%s"}\' result.csv > %s' % (name, resfile), directory=path)
+            self.director.run("rsync -a '%s:%s' ." % (name, path + '/' + resfile), directory=path)
+        self.director.run('cat %s > ./result.csv' % (' '.join(result_files)), directory=path)
         # Adding a header to the file
         self.nodes.run("sed -i '1s/^/function,m,n,k,lda,ldb,ldc,timestamp,duration,core,hostname\\n/' ./result.csv", directory=path)
         self.add_local_to_archive(path + '/result.csv')
