@@ -30,6 +30,17 @@ def compute_reg(df):
             del tmp[key]
     result['info']['experiment_date'] = str(datetime.datetime.fromtimestamp(result['info']['start_time']))
     del result['info']['start_time']
+    avg_alpha = numpy.mean([tmp['mnk'] for tmp in reg])
+    avg_beta  = numpy.mean([tmp['intercept'] for tmp in reg])
+    var_coeff = numpy.mean([tmp['mnk_residual']/tmp['mnk'] for tmp in reg])
+    het_coeff = numpy.std([tmp['mnk'] for tmp in reg]) / avg_alpha
+    result['info'].update({
+        'avg_gflops': float(2e-9/avg_alpha),
+        'avg_latency': float(avg_beta),
+        'heterogeneity_coefficient': float(het_coeff),
+        'variability_coefficient': float(var_coeff),
+        'nb_nodes': len(df['node'].unique()),
+    })
     for tmp in reg:
         tmp['cpu_id'] = 2*tmp['node'] + tmp['cpu']  # see the function get_cpuid() in HPL_dgemm.c
     result['model'] = reg
