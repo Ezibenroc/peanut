@@ -102,7 +102,12 @@ def model_to_c_code(model):
         return result
 
     def __reg_to_c(reg, granularity):
-        tmp = {c:reg[c] for c in cols}
+        tmp = {}
+        for c in cols:
+            try:
+                tmp[c] = reg[c]
+            except KeyError:
+                pass
         key = 'cpu_id' if granularity == 'cpu' else 'node'
         return '''    case %d: // node %d\n%s''' % (reg[key], reg['node'], __return_stmt(tmp))
 
@@ -113,7 +118,10 @@ def model_to_c_code(model):
     def compute_mean_reg(reg):
         mean_reg = {}
         for var in cols:
-            mean_reg[var] = sum([tmp[var] for tmp in reg]) / len(reg)
+            try:
+                mean_reg[var] = sum([tmp[var] for tmp in reg]) / len(reg)
+            except KeyError:
+                pass
         return mean_reg
 
     def dump_reg(all_reg, granularity):
