@@ -101,12 +101,13 @@ def model_to_c_code(model):
         result += '        return mu + random_halfnormal_shifted(0, sigma);'
         return result
 
-    def __reg_to_c(reg):
+    def __reg_to_c(reg, granularity):
         tmp = {c:reg[c] for c in cols}
-        return '''    case %d: // node %d\n%s''' % (reg['cpu_id'], reg['node'], __return_stmt(tmp))
+        key = 'cpu_id' if granularity == 'cpu' else 'node'
+        return '''    case %d: // node %d\n%s''' % (reg[key], reg['node'], __return_stmt(tmp))
 
-    def reg_to_c(all_reg):
-        result = [__reg_to_c(reg) for reg in all_reg]
+    def reg_to_c(all_reg, granularity):
+        result = [__reg_to_c(reg, granularity) for reg in all_reg]
         return '\n'.join(result)
 
     def compute_mean_reg(reg):
@@ -115,13 +116,20 @@ def model_to_c_code(model):
             mean_reg[var] = sum([tmp[var] for tmp in reg]) / len(reg)
         return mean_reg
 
-    def dump_reg(all_reg):
-        reg_code = reg_to_c(all_reg)
+    def dump_reg(all_reg, granularity):
+        reg_code = reg_to_c(all_reg, granularity)
         reg_code_default = __return_stmt(compute_mean_reg(all_reg))
-        reg_code = 'double mu, sigma;\nswitch(get_cpuid()) {\n%s\n    default:\n%s\n}' % (reg_code, reg_code_default)
+        switch = 'get_cpuid' if granularity == 'cpu' else 'get_nodeid'
+        reg_code = 'double mu, sigma;\nswitch(%s()) {\n%s\n    default:\n%s\n}' % (switch, reg_code, reg_code_default)
         return reg_code
 
-    return dump_reg(model)
+    try:
+        granularity = model['metadata']['granularity']
+    except KeyError:  # all format, the granularity was not here
+        granularity = 'cpu'
+    assert granularity in ('cpu', 'node')
+
+    return dump_reg(model['model'], granularity)
 
 
 class SMPIHPL(AbstractHPL):
@@ -137,7 +145,7 @@ class SMPIHPL(AbstractHPL):
         install_options = self.installfile.content
         files = {f.extension: f for f in self.expfile}
         expfile = files['csv']
-        dgemm_model = files['yaml'].content['model']
+        dgemm_model = files['yaml'].content
         dgemm_c = model_to_c_code(dgemm_model)
         self.add_content_to_archive(dgemm_c, 'dgemm_model.c')
         self.apt_install('python3', 'libboost-dev', 'pajeng')

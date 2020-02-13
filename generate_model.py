@@ -48,6 +48,7 @@ def main(archive_file, model_file):
         'file_creation_date': str(datetime.datetime.now()),
         'archive_file': archive_file,
         'cashew_git': cashew.__git_version__,
+        'granularity': 'cpu',
     }
     with open(model_file, 'w') as f:
         yaml.dump(reg, f)

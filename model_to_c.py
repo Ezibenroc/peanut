@@ -6,7 +6,7 @@ from peanut.smpi_hpl import model_to_c_code
 def main(model_file, code_file):
     with open(model_file) as f:
         model = yaml.load(f, Loader=yaml.SafeLoader)
-    code = model_to_c_code(model['model'])
+    code = model_to_c_code(model)
     with open(code_file, 'w') as f:
         f.write(code)
 
