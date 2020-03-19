@@ -117,7 +117,7 @@ class BLASCalibration(Job):
 
     @classmethod
     def gen_exp(cls, max_prod=int(1e10), max_size=15500, fixed_sizes={}):
-#    def gen_exp(cls, max_prod=int(2e11), max_size=50000, fixed_sizes={'k': 128}): # multithread case, with K fixed
+#    def gen_exp(cls, max_prod=int(1e12), max_size=80000, fixed_sizes={'k': 512}): # multithread case, with K fixed
         '''
         Generate a random sequence of experiments, list of tuples (m,n,k,lda,ldb,ldc) such that:
         - The product m*n*k is regularly and uniformly distributed in [1, max_prod] (with some randomness).
