@@ -12,6 +12,7 @@ colorlog = "^4.0"
 PyYAML = "^5.1"
 lxml = "^4.4"
 cashew = { file = "cashew-0.0.0-py3-none-any.whl" }
+wheel = "^0.34.2"
 
 [tool.poetry.dev-dependencies]
 ipython = "^7.7"
