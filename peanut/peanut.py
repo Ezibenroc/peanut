@@ -1179,6 +1179,7 @@ class Job:
         if name not in self.information[key]:
             self.information[key][name] = {}
         self.information[key][name][tag] = timestamp
+        return timestamp
 
     def signal_handler(self, sig, frame):
         if 'aborted' not in self.information:  # checking that the job has not already received the signal
