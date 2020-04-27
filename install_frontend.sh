@@ -8,5 +8,6 @@ user=$2
 
 rm -rf dist
 python setup.py bdist_wheel
+ssh $frontend.g5k 'rm peanut*whl'
 scp dist/*whl $frontend.g5k:/home/$user
 ssh $frontend.g5k 'python3 -m pip uninstall -y peanut ; python3 -m pip install peanut*whl --user'
