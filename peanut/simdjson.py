@@ -26,9 +26,9 @@ class Simdjson(Job):
         )
         simdjson_version = install_options['version']
         self.git_clone('https://github.com/simdjson/simdjson.git', self.simdjson_dir, checkout=simdjson_version)
+        self.nodes.run('mkdir %s' % self.build_dir)
         if install_options['mode'] == 'complete':
             assert not (simdjson_version.startswith('v0.2') or simdjson_version.startswith('v0.1'))
-            self.nodes.run('mkdir %s' % self.build_dir)
             self.nodes.run('cmake ..', directory=self.build_dir)
             self.nodes.run('cmake --build . --config Release', directory=self.build_dir)
         elif install_options['mode'] == 'simple':
