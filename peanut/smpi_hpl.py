@@ -142,7 +142,7 @@ def model_to_c_code(model):
 
 class SMPIHPL(AbstractHPL):
     installfile_types = {'stochastic_network': bool, 'stochastic_cpu': bool, 'disable_hpl_kernels': bool,
-                         'disable_nondgemm_randomness': bool,
+                         'disable_nondgemm_randomness': bool, 'random_seed': int,
                          **AbstractHPL.installfile_types}
 
     def setup(self):
@@ -181,7 +181,7 @@ class SMPIHPL(AbstractHPL):
         patch = '\n'.join(patches) if patches else None
         self.git_clone('https://github.com/Ezibenroc/hpl.git', self.hpl_dir, patch=patch, checkout=hpl_branch)
         self.nodes.run('make startup arch=SMPI', directory=self.hpl_dir)
-        options = '-DSMPI_OPTIMIZATION'
+        options = '-DSMPI_OPTIMIZATION -DSMPI_SEED=%d' % install_options['random_seed']
         if install_options['trace_execution']:
             options += ' -DSMPI_MEASURE'
         self.nodes.write_files(dgemm_c, os.path.join(self.hpl_dir, 'src/blas/dgemm_model.c'))
