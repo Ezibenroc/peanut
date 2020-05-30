@@ -768,12 +768,14 @@ class Job:
                         checkout='323ed812d816c332a117b4132a6a8ba459fbad05')
         self.nodes.run('pip3 install .', directory='ratatouille')
         self.nodes.run('ratatouille --git-version')
-        command = 'ratatouille collect -t %d monitoring.csv' % period
+        command = 'ratatouille collect -t %d all monitoring.csv' % period
         command = 'tmux new-session -d -s tmux_monitoring "%s"' % command
         self.nodes.run(command)
 
     def stop_monitoring(self):
         self.nodes.run('tmux kill-session -t tmux_monitoring')
+        # the kill-session does not immediately terminate the monitoring, there is a delay
+        time.sleep(self.monitoring_period + 1)
         filename = 'monitoring.csv'
         if len(self.orchestra.hostnames) > 0:
             remote_file = os.path.join(self.orchestra.working_dir, filename)
