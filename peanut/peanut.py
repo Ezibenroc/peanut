@@ -765,7 +765,7 @@ class Job:
 
     def start_monitoring(self, period=1):
         self.git_clone('https://github.com/Ezibenroc/ratatouille.git', 'ratatouille',
-                        checkout='323ed812d816c332a117b4132a6a8ba459fbad05')
+                        checkout='bb1ac5e61428a2390755c4878c056040e04f8b77')
         self.nodes.run('pip3 install .', directory='ratatouille')
         self.nodes.run('ratatouille --git-version')
         command = 'ratatouille collect -t %d all monitoring.csv' % period
