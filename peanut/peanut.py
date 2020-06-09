@@ -765,7 +765,8 @@ class Job:
 
     def start_monitoring(self, period=1):
         self.git_clone('https://github.com/Ezibenroc/ratatouille.git', 'ratatouille',
-                        checkout='1f1282e6d26f37f489b3e94f687485196031ed81')
+                        checkout='0.0.3')
+        self.nodes.run('pip3 install pandas')  # pandas is a minor dependency, required for ratatouille merge
         self.nodes.run('pip3 install .', directory='ratatouille')
         self.nodes.run('ratatouille --git-version')
         command = 'ratatouille collect -t %d all monitoring.csv' % period
