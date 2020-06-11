@@ -84,8 +84,12 @@ class HPL(AbstractHPL):
             mapping = []
             for rank in range(nb_ranks):
                 host = self.hostnames[rank // process_per_node]
-                core = rank % process_per_node
-                mapping.append('rank %d=%s slot=%d' % (rank, host, core))
+                if process_per_node > 1:
+                    core = rank % process_per_node
+                    mapping.append('rank %d=%s slot=%d' % (rank, host, core))
+                else:
+                    cores = '%d-%d' % (0, nb_cores-1)
+                    mapping.append('rank %d=%s slot=%s' % (rank, host, cores))
             mapping = '\n'.join(mapping)
             hosts = '\n'.join('%s slots=%d' % (host, process_per_node) for host in self.hostnames)
             hostfile = os.path.join('/tmp/hosts.txt')
