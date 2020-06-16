@@ -619,7 +619,7 @@ class Job:
 
     @classmethod
     def oarsub(cls, frontend, constraint, walltime, nb_nodes, *,
-               deploy=False, queue=None, script=None, container=None):
+               deploy=False, queue=None, script=None, container=None, reservation=None):
         name = cls.__name__
         constraint = '%s/nodes=%s,walltime=%s' % (
             constraint, nb_nodes, walltime)
@@ -627,8 +627,17 @@ class Job:
         queue_str = '-q %s ' % queue if queue else ''
         cmd = 'oarsub --checkpoint 120 -n "%s" %s%s -l "%s"' % (name, queue_str, deploy_str, constraint)
         if script:
+            if reservation is not None:
+                try:
+                    date = datetime.datetime.strptime(reservation, '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    raise PeanutError('Cannot parse date "%s"' % reservation)
+                if date < datetime.datetime.now():
+                    raise PeanutError('Cannot make a reservation in the past')
+                cmd += ' -r "%s"' % date
             cmd += " '%s'" % script
         else:
+            assert reservation is None
             date = frontend.run_unique('date "+%Y-%m-%d %H:%M:%S"').stdout.strip()
             cmd += ' -r "%s"' % date
         if container:
@@ -640,13 +649,13 @@ class Job:
 
     @classmethod
     def oarsub_cluster(cls, username, cluster, walltime, nb_nodes, *,
-                       deploy=False, script=None, container=None):
+                       deploy=False, script=None, container=None, reservation=None):
         site = cls.sites[cluster]
         queue = cls.queues[cluster]
         frontend = cls.g5k_frontend(site, username)
         constraint = "{cluster in ('%s')}" % cluster
         return cls.oarsub(frontend, constraint, walltime, nb_nodes, deploy=deploy,
-                          queue=queue, script=script, container=container)
+                          queue=queue, script=script, container=container, reservation=reservation)
 
     @classmethod
     def _check_hostnames(cls, hostnames):
@@ -659,7 +668,7 @@ class Job:
 
     @classmethod
     def oarsub_hostnames(cls, username, hostnames, walltime, nb_nodes=None, *,
-                         deploy=False, script=None, container=None):
+                         deploy=False, script=None, container=None, reservation=None):
         cluster = cls._check_hostnames(hostnames)
         site = cls.sites[cluster]
         queue = cls.queues[cluster]
@@ -669,7 +678,7 @@ class Job:
         if nb_nodes is None:
             nb_nodes = len(hostnames)
         return cls.oarsub(frontend, constraint, walltime, nb_nodes, deploy=deploy,
-                          queue=queue, script=script, container=container)
+                          queue=queue, script=script, container=container, reservation=reservation)
 
     @classmethod
     def g5k_connection(cls, site, username):
@@ -1072,6 +1081,7 @@ class Job:
         sp_run.add_argument('--walltime', help='Duration of the experiment.', type=Time.parse, default=Time(hours=1))
         sp_run.add_argument('--nbnodes', help='Number of nodes for the experiment.', type=int_nodes, default=1)
         sp_run.add_argument('--container', help='Container job for this sub-job.', type=positive_int, default=None)
+        sp_run.add_argument('--reservation', help='Reservation date for the job.', type=str, default=None)
         sp_run.add_argument('--expfile', help='File which describes the experiment.',
                             nargs='+', type=lambda f: ExpFile(filename=f, types=cls.expfile_types,
                                                               header=cls.expfile_header,
@@ -1162,12 +1172,17 @@ class Job:
             container = args['container']
         except KeyError:
             container = None
+        try:
+            reservation = args['reservation']
+        except KeyError:
+            reservation = None
         if 'cluster' in args:
             job = cls.oarsub_cluster(user, cluster=cluster, walltime=args['walltime'], nb_nodes=args['nbnodes'],
-                                     deploy=deploy, script=script, container=container)
+                                     deploy=deploy, script=script, container=container, reservation=reservation)
         elif 'nodes' in args:
             job = cls.oarsub_hostnames(user, hostnames=hostnames, walltime=args['walltime'],
-                                       nb_nodes=args['nbnodes'], deploy=deploy, script=script, container=container)
+                                       nb_nodes=args['nbnodes'], deploy=deploy, script=script, container=container,
+                                       reservation=reservation)
         else:
             job = cls(jobid, frontend, deploy=deploy)
         job.expfile = expfile
