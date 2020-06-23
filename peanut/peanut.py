@@ -628,13 +628,16 @@ class Job:
         cmd = 'oarsub --checkpoint 120 -n "%s" %s%s -l "%s"' % (name, queue_str, deploy_str, constraint)
         if script:
             if reservation is not None:
-                try:
-                    date = datetime.datetime.strptime(reservation, '%Y-%m-%d %H:%M:%S')
-                except ValueError:
-                    raise PeanutError('Cannot parse date "%s"' % reservation)
-                if date < datetime.datetime.now():
-                    raise PeanutError('Cannot make a reservation in the past')
-                cmd += ' -r "%s"' % date
+                if reservation in {'day', 'night'}:
+                    cmd += ' -t %s' % reservation
+                else:
+                    try:
+                        date = datetime.datetime.strptime(reservation, '%Y-%m-%d %H:%M:%S')
+                    except ValueError:
+                        raise PeanutError('Cannot parse date "%s"' % reservation)
+                    if date < datetime.datetime.now():
+                        raise PeanutError('Cannot make a reservation in the past')
+                    cmd += ' -r "%s"' % date
             cmd += " '%s'" % script
         else:
             assert reservation is None
