@@ -18,7 +18,7 @@ class BLASCalibration(Job):
     def check_exp(cls, exp):
         if exp['m'] < 0 or exp['n'] < 0 or (exp['operation'] != 'dtrsm' and exp['k'] < 0):
             raise ValueError('Error with experiment %s, negative size.' % exp)
-        if exp['lda'] < exp['m'] or exp['ldb'] < exp['k'] or exp['ldc'] < exp['m']:
+        if exp['lda'] < exp['m'] or exp['ldb'] < exp['n'] or exp['ldc'] < exp['m']:
             raise ValueError('Error with experiment %s, leading dimension is too small.' % exp)
         if exp['operation'] not in cls.all_op:
             raise ValueError('Error with experiment %s, unknown operation.' % exp)
@@ -46,7 +46,7 @@ class BLASCalibration(Job):
         self.nodes.run('ln -s libopenblas.so libblas.so', directory='lib')
         patch = None if matrix_init == 'random' else self.initialization_patch(matrix_init)
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration',
-                       checkout='29084860626fd520e3d661a4bc28f8f8a094e9d1', patch=patch)
+                       checkout='ebac954948d637dfa1a1e0d7a74cf8188f999c75', patch=patch)
         make_var = 'CFLAGS="-DMASK_SIZE=%d"' % matrix_mask if matrix_mask else ''
         self.nodes.run('BLAS_INSTALLATION=%s make calibrate_blas %s' % (self.nodes.working_dir, make_var),
                        directory='platform-calibration/src/calibration')
