@@ -337,64 +337,64 @@ index 41e5afd..f52e826 100644
 +    timestamp_t start = get_timestamp();\
 +    cblas_dgemm(layout, TransA, TransB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc);\
 +    timestamp_t duration = get_timestamp() - start;\
-+    record_measure(__FILE__, __LINE__, "dgemm", start, duration, 3, (int []){M, N, K});\
++    if(M > 0 && N > 0 && K > 0) record_measure(__FILE__, __LINE__, "dgemm", start, duration, 3, (int []){M, N, K});\
 +})
 +
 +#define HPL_dtrsm(layout, Side, Uplo, TransA, Diag, M, N, alpha, A, lda, B, ldb) ({\
 +    timestamp_t start = get_timestamp();\
 +    cblas_dtrsm(layout, Side, Uplo, TransA, Diag, M, N, alpha, A, lda, B, ldb);\
 +    timestamp_t duration = get_timestamp() - start;\
-+    record_measure(__FILE__, __LINE__, "dtrsm", start, duration, 2, (int []){M, N});\
++    if(M > 0 && N > 0) record_measure(__FILE__, __LINE__, "dtrsm", start, duration, 2, (int []){M, N});\
 +})
 +
 +#define HPL_dswap(N, X, incX, Y, incY) ({\
 +    timestamp_t start = get_timestamp();\
 +    cblas_dswap(N, X, incX, Y, incY);\
 +    timestamp_t duration = get_timestamp() - start;\
-+    record_measure(__FILE__, __LINE__, "dswap", start, duration, 1, (int []){N});\
++    if(N > 0) record_measure(__FILE__, __LINE__, "dswap", start, duration, 1, (int []){N});\
 +})
 +#define HPL_dcopy(N, X, incX, Y, incY) ({\
 +    timestamp_t start = get_timestamp();\
 +    cblas_dcopy(N, X, incX, Y, incY);\
 +    timestamp_t duration = get_timestamp() - start;\
-+    record_measure(__FILE__, __LINE__, "dcopy", start, duration, 1, (int []){N});\
++    if(N > 0) record_measure(__FILE__, __LINE__, "dcopy", start, duration, 1, (int []){N});\
 +})
 +#define HPL_daxpy(N, alpha, X, incX, Y, incY) ({\
 +    timestamp_t start = get_timestamp();\
 +    cblas_daxpy(N, alpha, X, incX, Y, incY);\
 +    timestamp_t duration = get_timestamp() - start;\
-+    record_measure(__FILE__, __LINE__, "daxpy", start, duration, 1, (int []){N});\
++    if(N > 0) record_measure(__FILE__, __LINE__, "daxpy", start, duration, 1, (int []){N});\
 +})
 +#define HPL_dscal(N, alpha, X, incX) ({\
 +    timestamp_t start = get_timestamp();\
 +    cblas_dscal(N, alpha, X, incX);\
 +    timestamp_t duration = get_timestamp() - start;\
-+    record_measure(__FILE__, __LINE__, "dscal", start, duration, 1, (int []){N});\
++    if(N > 0) record_measure(__FILE__, __LINE__, "dscal", start, duration, 1, (int []){N});\
 +})
 +#define HPL_idamax(N, X, incX) ({\
 +    timestamp_t start = get_timestamp();\
 +    int result = cblas_idamax(N, X, incX);\
 +    timestamp_t duration = get_timestamp() - start;\
-+    record_measure(__FILE__, __LINE__, "idamax", start, duration, 1, (int []){N});\
++    if(N > 0) record_measure(__FILE__, __LINE__, "idamax", start, duration, 1, (int []){N});\
 +    result;\
 +})
 +#define HPL_dgemv(layout, TransA, M, N, alpha, A, lda, X, incX, beta, Y, incY) ({\
 +    timestamp_t start = get_timestamp();\
 +    cblas_dgemv(layout, TransA, M, N, alpha, A, lda, X, incX, beta, Y, incY);\
 +    timestamp_t duration = get_timestamp() - start;\
-+    record_measure(__FILE__, __LINE__, "dgemv", start, duration, 2, (int []){M, N});\
++    if(M > 0 && N > 0) record_measure(__FILE__, __LINE__, "dgemv", start, duration, 2, (int []){M, N});\
 +})
 +#define HPL_dtrsv(layout, Uplo, TransA, Diag, N, A, lda, X, incX) ({\
 +    timestamp_t start = get_timestamp();\
 +    cblas_dtrsv(layout, Uplo, TransA, Diag, N, A, lda, X, incX);\
 +    timestamp_t duration = get_timestamp() - start;\
-+    record_measure(__FILE__, __LINE__, "dtrsv", start, duration, 1, (int []){N});\
++    if(N > 0) record_measure(__FILE__, __LINE__, "dtrsv", start, duration, 1, (int []){N});\
 +})
 +#define HPL_dger(layout, M, N, alpha, X, incX, Y, incY, A, ldA) ({\
 +    timestamp_t start = get_timestamp();\
 +    cblas_dger(layout, M, N, alpha, X, incX, Y, incY, A, ldA);\
 +    timestamp_t duration = get_timestamp() - start;\
-+    record_measure(__FILE__, __LINE__, "dger", start, duration, 2, (int []){M, N});\
++    if(M > 0 && N > 0) record_measure(__FILE__, __LINE__, "dger", start, duration, 2, (int []){M, N});\
 +})
 +
  #ifdef HPL_CALL_FBLAS
@@ -417,7 +417,7 @@ index 89ae13b..ea15e65 100644
   * End of HPL_dlacpy
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
++    if(M > 0 && N > 0) record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
 diff --git a/src/auxil/HPL_dlatcpy.c b/src/auxil/HPL_dlatcpy.c
 index 7643676..eb84bea 100644
@@ -436,7 +436,7 @@ index 7643676..eb84bea 100644
   * End of HPL_dlatcpy
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
++    if(M > 0 && N > 0) record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
 diff --git a/src/pauxil/HPL_dlaswp00N.c b/src/pauxil/HPL_dlaswp00N.c
 index 60ae8b1..72952e3 100644
@@ -455,7 +455,7 @@ index 60ae8b1..72952e3 100644
   * End of HPL_dlaswp00N
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
++    if(M > 0 && N > 0) record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
 diff --git a/src/pauxil/HPL_dlaswp01N.c b/src/pauxil/HPL_dlaswp01N.c
 index f467470..eab7b51 100644
@@ -474,7 +474,7 @@ index f467470..eab7b51 100644
   * End of HPL_dlaswp01N
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
++    if(M > 0 && N > 0) record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
 diff --git a/src/pauxil/HPL_dlaswp01T.c b/src/pauxil/HPL_dlaswp01T.c
 index c3c9e4a..3e0b4cb 100644
@@ -493,7 +493,7 @@ index c3c9e4a..3e0b4cb 100644
   * End of HPL_dlaswp01T
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
++    if(M > 0 && N > 0) record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
 diff --git a/src/pauxil/HPL_dlaswp02N.c b/src/pauxil/HPL_dlaswp02N.c
 index 84a887b..fa1fa1b 100644
@@ -512,7 +512,7 @@ index 84a887b..fa1fa1b 100644
   * End of HPL_dlaswp02N
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
++    if(M > 0 && N > 0) record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
 diff --git a/src/pauxil/HPL_dlaswp03N.c b/src/pauxil/HPL_dlaswp03N.c
 index 711c211..e7ae6b5 100644
@@ -531,7 +531,7 @@ index 711c211..e7ae6b5 100644
   * End of HPL_dlaswp03N
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
++    if(M > 0 && N > 0) record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
 diff --git a/src/pauxil/HPL_dlaswp03T.c b/src/pauxil/HPL_dlaswp03T.c
 index d6629de..b6b9922 100644
@@ -550,7 +550,7 @@ index d6629de..b6b9922 100644
   * End of HPL_dlaswp03T
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
++    if(M > 0 && N > 0) record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
 diff --git a/src/pauxil/HPL_dlaswp04N.c b/src/pauxil/HPL_dlaswp04N.c
 index 822a5ac..9ba343b 100644
@@ -569,7 +569,7 @@ index 822a5ac..9ba343b 100644
   * End of HPL_dlaswp04N
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 3, (int []){M0, M1, N});
++    if(M0 > 0 && M1 > 0 && N > 0) record_measure("", 0, __func__, start, duration, 3, (int []){M0, M1, N});
  }
 diff --git a/src/pauxil/HPL_dlaswp04T.c b/src/pauxil/HPL_dlaswp04T.c
 index 4b62689..c907d85 100644
@@ -588,7 +588,7 @@ index 4b62689..c907d85 100644
   * End of HPL_dlaswp04T
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 3, (int []){M0, M1, N});
++    if(M0 > 0 && M1 > 0 && N > 0) record_measure("", 0, __func__, start, duration, 3, (int []){M0, M1, N});
  }
 diff --git a/src/pauxil/HPL_dlaswp05N.c b/src/pauxil/HPL_dlaswp05N.c
 index 928e7f7..a172ded 100644
@@ -607,7 +607,7 @@ index 928e7f7..a172ded 100644
   * End of HPL_dlaswp05N
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
++    if(M > 0 && N > 0) record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
 diff --git a/src/pauxil/HPL_dlaswp05T.c b/src/pauxil/HPL_dlaswp05T.c
 index 50f337a..c83d981 100644
@@ -626,7 +626,7 @@ index 50f337a..c83d981 100644
   * End of HPL_dlaswp05T
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
++    if(M > 0 && N > 0) record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
 diff --git a/src/pauxil/HPL_dlaswp06N.c b/src/pauxil/HPL_dlaswp06N.c
 index 8954577..472b86a 100644
@@ -645,7 +645,7 @@ index 8954577..472b86a 100644
   * End of HPL_dlaswp06N
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
++    if(M > 0 && N > 0) record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
 diff --git a/src/pauxil/HPL_dlaswp06T.c b/src/pauxil/HPL_dlaswp06T.c
 index 481b53b..36a4908 100644
@@ -664,7 +664,7 @@ index 481b53b..36a4908 100644
   * End of HPL_dlaswp06T
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
++    if(M > 0 && N > 0) record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
 diff --git a/src/pauxil/HPL_dlaswp10N.c b/src/pauxil/HPL_dlaswp10N.c
 index 8b33de5..a6238f7 100644
@@ -683,7 +683,7 @@ index 8b33de5..a6238f7 100644
   * End of HPL_dlaswp10N
   */
 +    timestamp_t duration = get_timestamp() - start;
-+    record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
++    if(M > 0 && N > 0) record_measure("", 0, __func__, start, duration, 2, (int []){M, N});
  }
 diff --git a/testing/ptest/HPL_pddriver.c b/testing/ptest/HPL_pddriver.c
 index dd2b3fd..07f83c3 100644
