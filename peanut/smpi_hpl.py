@@ -228,7 +228,7 @@ class SMPIHPL(AbstractHPL):
             cmd = 'TIME="/usr/bin/time:output %U %S %F %R %P" '
             cmd += 'LD_LIBRARY_PATH=/tmp/lib '
             subcmd = 'smpirun -wrapper /usr/bin/time --cfg=smpi/privatize-global-variables:dlopen -np %d ' % nb_hpl_proc
-            subcmd += '--cfg=smpi/simulate-computation:no '
+            subcmd += '--cfg=smpi/simulate-computation:yes '
             if install_options['trace_execution']:
                 paje_file = os.path.join(self.director.working_dir, 'trace_%d.paje' % i)
                 subcmd += '--cfg=tracing:yes --cfg=tracing/filename:%s --cfg=tracing/smpi:1 ' % paje_file
