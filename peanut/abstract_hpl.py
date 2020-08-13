@@ -201,22 +201,114 @@ index 3aa7f2b..ed9c90a 100644
 '''
 
     first_bcast_trace_patch = r'''
+diff --git a/src/comm/HPL_bcast.c b/src/comm/HPL_bcast.c
+index da823f9..36c23f4 100644
+--- a/src/comm/HPL_bcast.c
++++ b/src/comm/HPL_bcast.c
+@@ -92,9 +92,20 @@ int HPL_bcast
+ /* ..
+  * .. Executable Statements ..
+  */
+-   if( PANEL == NULL ) { *IFLAG = HPL_SUCCESS; return( HPL_SUCCESS ); }
+-   if( PANEL->grid->npcol <= 1 )
+-   {                     *IFLAG = HPL_SUCCESS; return( HPL_SUCCESS ); }
++   timestamp_t start = get_timestamp();
++   timestamp_t duration;
++   if( PANEL == NULL ) {
++       *IFLAG = HPL_SUCCESS;
++       duration = get_timestamp() - start;
++       record_measure(__FILE__, __LINE__, "HPL_bcast", start, duration, 0, NULL);
++       return( HPL_SUCCESS );
++   }
++   if( PANEL->grid->npcol <= 1 ) {
++       *IFLAG = HPL_SUCCESS;
++       duration = get_timestamp() - start;
++       record_measure(__FILE__, __LINE__, "HPL_bcast", start, duration, 0, NULL);
++       return( HPL_SUCCESS );
++   }
+ /*
+  * Retrieve the selected virtual broadcast topology
+  */
+@@ -111,6 +122,8 @@ int HPL_bcast
+       default          : ierr = HPL_SUCCESS;
+    }
+
++   duration = get_timestamp() - start;
++   record_measure(__FILE__, __LINE__, "HPL_bcast", start, duration, 0, NULL);
+    return( ierr );
+ /*
+  * End of HPL_bcast
+diff --git a/src/pgesv/HPL_pdgesv.c b/src/pgesv/HPL_pdgesv.c
+index af46ee6..c5574c1 100644
+--- a/src/pgesv/HPL_pdgesv.c
++++ b/src/pgesv/HPL_pdgesv.c
+@@ -94,6 +94,8 @@ void HPL_pdgesv
+ /* ..
+  * .. Executable Statements ..
+  */
++   timestamp_t start = get_timestamp();
++   timestamp_t duration;
+    if( A->n <= 0 ) return;
+
+    A->info = 0;
+@@ -110,6 +112,8 @@ void HPL_pdgesv
+  * Solve upper triangular system
+  */
+    if( A->info == 0 ) HPL_pdtrsv( GRID, A );
++   duration = get_timestamp() - start;
++   record_measure(__FILE__, __LINE__, "HPL_pdgesv", start, duration, 0, NULL);
+ /*
+  * End of HPL_pdgesv
+  */
 diff --git a/src/pgesv/HPL_pdupdateTT.c b/src/pgesv/HPL_pdupdateTT.c
-index 57444bc..baf158c 100644
+index 57444bc..b990903 100644
 --- a/src/pgesv/HPL_pdupdateTT.c
 +++ b/src/pgesv/HPL_pdupdateTT.c
-@@ -125,8 +125,11 @@ void HPL_pdupdateTT
+@@ -113,6 +113,8 @@ void HPL_pdupdateTT
+ /* ..
+  * .. Executable Statements ..
+  */
++   timestamp_t start_pduptate = get_timestamp();
++   timestamp_t duration;
+ #ifdef HPL_DETAILED_TIMING
+    HPL_ptimer( HPL_TIMING_UPDATE );
+ #endif
+@@ -125,18 +127,26 @@ void HPL_pdupdateTT
     {
        if( PBCST != NULL )
        {
-+         timestamp_t start = get_timestamp();
++         timestamp_t start_bcast = get_timestamp();
           do { (void) HPL_bcast( PBCST, IFLAG ); }
           while( *IFLAG != HPL_SUCCESS );
-+         timestamp_t duration = get_timestamp() - start;
-+         record_measure(__FILE__, __LINE__, "first_bcast", start, duration, 0, NULL);
++         timestamp_t duration = get_timestamp() - start_bcast;
++         record_measure(__FILE__, __LINE__, "first_bcast", start_bcast, duration, 0, NULL);
        }
  #ifdef HPL_DETAILED_TIMING
        HPL_ptimer( HPL_TIMING_UPDATE );
+ #endif
++      duration = get_timestamp() - start_pduptate;
++      record_measure(__FILE__, __LINE__, "HPL_pdupdateTT", start_pduptate, duration, 0, NULL);
+       return;
+    }
+ /*
+  * Enable/disable the column panel probing mechanism
+  */
++   timestamp_t start_bcast2 = get_timestamp();
+    (void) HPL_bcast( PBCST, &test );
++   duration = get_timestamp() - start_bcast2;
++   record_measure(__FILE__, __LINE__, "second_bcast", start_bcast2, duration, 0, NULL);
+ /*
+  * 1 x Q case
+  */
+@@ -437,6 +447,8 @@ void HPL_pdupdateTT
+ #ifdef HPL_DETAILED_TIMING
+    HPL_ptimer( HPL_TIMING_UPDATE );
+ #endif
++   duration = get_timestamp() - start_pduptate;
++   record_measure(__FILE__, __LINE__, "HPL_pdupdateTT", start_pduptate, duration, 0, NULL);
+ /*
+  * End of HPL_pdupdateTT
+  */
 '''
 
     hpl_bcast_patch = r'''
