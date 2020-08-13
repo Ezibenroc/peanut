@@ -304,7 +304,7 @@ index 41e5afd..5350ea5 100644
 
     '''
 
-    patch = trace_functions_patch + r'''
+    patch = trace_functions_patch + AbstractHPL.first_bcast_trace_patch + r'''
 diff --git a/include/hpl_blas.h b/include/hpl_blas.h
 index 41e5afd..f52e826 100644
 --- a/include/hpl_blas.h

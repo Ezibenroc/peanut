@@ -167,7 +167,7 @@ class SMPIHPL(AbstractHPL):
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
         hpl_branch = 'generic_model'
-        patches = [self.makefile_patch]
+        patches = [self.makefile_patch, AbstractHPL.first_bcast_trace_patch]
         if not install_options['stochastic_cpu']:
             patches.append(self.no_noise_patch)
         if install_options['terminate_early']:

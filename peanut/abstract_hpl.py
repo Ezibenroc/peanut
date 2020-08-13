@@ -200,6 +200,25 @@ index 3aa7f2b..ed9c90a 100644
        if ( GRID->myrow == 0 && mycol == 0 && j > 0 )
 '''
 
+    first_bcast_trace_patch = r'''
+diff --git a/src/pgesv/HPL_pdupdateTT.c b/src/pgesv/HPL_pdupdateTT.c
+index 57444bc..baf158c 100644
+--- a/src/pgesv/HPL_pdupdateTT.c
++++ b/src/pgesv/HPL_pdupdateTT.c
+@@ -125,8 +125,11 @@ void HPL_pdupdateTT
+    {
+       if( PBCST != NULL )
+       {
++         timestamp_t start = get_timestamp();
+          do { (void) HPL_bcast( PBCST, IFLAG ); }
+          while( *IFLAG != HPL_SUCCESS );
++         timestamp_t duration = get_timestamp() - start;
++         record_measure(__FILE__, __LINE__, "first_bcast", start, duration, 0, NULL);
+       }
+ #ifdef HPL_DETAILED_TIMING
+       HPL_ptimer( HPL_TIMING_UPDATE );
+'''
+
     hpl_bcast_patch = r'''
 diff --git a/testing/ptest/HPL_pdtest.c b/testing/ptest/HPL_pdtest.c
 index 33b11ac..dea0d93 100644
