@@ -201,43 +201,6 @@ index 3aa7f2b..ed9c90a 100644
 '''
 
     first_bcast_trace_patch = r'''
-diff --git a/src/comm/HPL_bcast.c b/src/comm/HPL_bcast.c
-index da823f9..36c23f4 100644
---- a/src/comm/HPL_bcast.c
-+++ b/src/comm/HPL_bcast.c
-@@ -92,9 +92,20 @@ int HPL_bcast
- /* ..
-  * .. Executable Statements ..
-  */
--   if( PANEL == NULL ) { *IFLAG = HPL_SUCCESS; return( HPL_SUCCESS ); }
--   if( PANEL->grid->npcol <= 1 )
--   {                     *IFLAG = HPL_SUCCESS; return( HPL_SUCCESS ); }
-+   timestamp_t start = get_timestamp();
-+   timestamp_t duration;
-+   if( PANEL == NULL ) {
-+       *IFLAG = HPL_SUCCESS;
-+       duration = get_timestamp() - start;
-+       record_measure(__FILE__, __LINE__, "HPL_bcast", start, duration, 0, NULL);
-+       return( HPL_SUCCESS );
-+   }
-+   if( PANEL->grid->npcol <= 1 ) {
-+       *IFLAG = HPL_SUCCESS;
-+       duration = get_timestamp() - start;
-+       record_measure(__FILE__, __LINE__, "HPL_bcast", start, duration, 0, NULL);
-+       return( HPL_SUCCESS );
-+   }
- /*
-  * Retrieve the selected virtual broadcast topology
-  */
-@@ -111,6 +122,8 @@ int HPL_bcast
-       default          : ierr = HPL_SUCCESS;
-    }
-
-+   duration = get_timestamp() - start;
-+   record_measure(__FILE__, __LINE__, "HPL_bcast", start, duration, 0, NULL);
-    return( ierr );
- /*
-  * End of HPL_bcast
 diff --git a/src/pgesv/HPL_pdgesv.c b/src/pgesv/HPL_pdgesv.c
 index af46ee6..c5574c1 100644
 --- a/src/pgesv/HPL_pdgesv.c
