@@ -171,10 +171,19 @@ class AbstractHPL(Job):
 
     hpl_early_termination_patch = r'''
 diff --git a/src/pgesv/HPL_pdgesv0.c b/src/pgesv/HPL_pdgesv0.c
-index 8bcf71a..ff2a1b9 100644
+index 8bcf71a..7c7f9fc 100644
 --- a/src/pgesv/HPL_pdgesv0.c
 +++ b/src/pgesv/HPL_pdgesv0.c
-@@ -126,6 +126,9 @@ void HPL_pdgesv0
+@@ -104,6 +104,8 @@ void HPL_pdgesv0
+ /* ..
+  * .. Executable Statements ..
+  */
++   timestamp_t start = get_timestamp();
++   timestamp_t duration;
+    if( ( N = A->n ) <= 0 ) return;
+
+ #ifdef HPL_PROGRESS_REPORT
+@@ -126,9 +128,12 @@ void HPL_pdgesv0
     for( j = 0; j < N; j += nb )
     {
        n = N - j; jb = Mmin( n, nb );
@@ -183,12 +192,91 @@ index 8bcf71a..ff2a1b9 100644
 +      }
  #ifdef HPL_PROGRESS_REPORT
        /* if this is process 0,0 and not the first panel */
-       if ( GRID->myrow == 0 && GRID->mycol == 0 && j > 0 )
+-      if ( GRID->myrow == 0 && GRID->mycol == 0 && j > 0 )
++      if ( GRID->myrow == 0 && GRID->mycol == 0 && j > 0 )
+       {
+           time = HPL_timer_walltime() - start_time;
+           gflops = 2.0*(N*(double)N*N - n*(double)n*n)/3.0/(time > 0.0 ? time : 1e-6)/1e9;
+@@ -138,18 +143,33 @@ void HPL_pdgesv0
+ /*
+  * Release panel resources - re-initialize panel data structure
+  */
++      start = get_timestamp();
+       (void) HPL_pdpanel_free( panel[0] );
+       HPL_pdpanel_init( GRID, ALGO, n, n+1, jb, A, j, j, tag, panel[0] );
++      duration = get_timestamp() - start;
++      record_measure(__FILE__, __LINE__, "HPL_pdgesv0:init", start, duration, 0, NULL);
+ /*
+  * Factor and broadcast current panel - update
+  */
++      start = get_timestamp();
+       HPL_pdfact(               panel[0] );
+       (void) HPL_binit(         panel[0] );
++      duration = get_timestamp() - start;
++      record_measure(__FILE__, __LINE__, "HPL_pdgesv0:factor", start, duration, 0, NULL);
++      start = get_timestamp();
+       do
+       { (void) HPL_bcast(       panel[0], &test ); }
+       while( test != HPL_SUCCESS );
++      duration = get_timestamp() - start;
++      record_measure(__FILE__, __LINE__, "HPL_pdgesv0:broadcast", start, duration, 0, NULL);
++      start = get_timestamp();
+       (void) HPL_bwait(         panel[0] );
++      duration = get_timestamp() - start;
++      record_measure(__FILE__, __LINE__, "HPL_pdgesv0:wait", start, duration, 0, NULL);
++      start = get_timestamp();
+       HPL_pdupdate( NULL, NULL, panel[0], -1 );
++      duration = get_timestamp() - start;
++      record_measure(__FILE__, __LINE__, "HPL_pdgesv0:update", start, duration, 0, NULL);
+ /*
+  * Update message id for next factorization
+  */
 diff --git a/src/pgesv/HPL_pdgesvK2.c b/src/pgesv/HPL_pdgesvK2.c
-index 3aa7f2b..ed9c90a 100644
+index 3aa7f2b..f920c7e 100644
 --- a/src/pgesv/HPL_pdgesvK2.c
 +++ b/src/pgesv/HPL_pdgesvK2.c
-@@ -172,6 +172,9 @@ void HPL_pdgesvK2
+@@ -105,6 +105,8 @@ void HPL_pdgesvK2
+ /* ..
+  * .. Executable Statements ..
+  */
++   timestamp_t start = get_timestamp();
++   timestamp_t duration;
+    mycol = GRID->mycol; npcol        = GRID->npcol;
+    depth = ALGO->depth; HPL_pdupdate = ALGO->upfun;
+    N     = A->n;        nb           = A->nb;
+@@ -151,19 +153,31 @@ void HPL_pdgesvK2
+ /*
+  * Factor and broadcast k-th panel
+  */
++      start = get_timestamp();
+       HPL_pdfact(         panel[k] );
+       (void) HPL_binit(   panel[k] );
++      duration = get_timestamp() - start;
++      record_measure(__FILE__, __LINE__, "HPL_pdgesK2:factor", start, duration, 0, NULL);
++      start = get_timestamp();
+       do
+       { (void) HPL_bcast( panel[k], &test ); }
+       while( test != HPL_SUCCESS );
++      duration = get_timestamp() - start;
++      record_measure(__FILE__, __LINE__, "HPL_pdgesvK2:broadcast", start, duration, 0, NULL);
++      start = get_timestamp();
+       (void) HPL_bwait(   panel[k] );
++      duration = get_timestamp() - start;
++      record_measure(__FILE__, __LINE__, "HPL_pdgesvK2:wait", start, duration, 0, NULL);
+ /*
+  * Partial update of the depth-k-1 panels in front of me
+  */
+       if( k < depth - 1 )
+       {
+          nn = HPL_numrocI( jstart-j, j, nb, nb, mycol, 0, npcol );
++         start = get_timestamp();
+          HPL_pdupdate( NULL, NULL, panel[k], nn );
++         duration = get_timestamp() - start;
++         record_measure(__FILE__, __LINE__, "HPL_pdgesvK2:update", start, duration, 0, NULL);
+       }
+    }
+ /*
+@@ -172,9 +186,12 @@ void HPL_pdgesvK2
     for( j = jstart; j < N; j += nb )
     {
        n = N - j; jb = Mmin( n, nb );
@@ -197,7 +285,53 @@ index 3aa7f2b..ed9c90a 100644
 +      }
  #ifdef HPL_PROGRESS_REPORT
        /* if this is process 0,0 and not the first panel */
-       if ( GRID->myrow == 0 && mycol == 0 && j > 0 )
+-      if ( GRID->myrow == 0 && mycol == 0 && j > 0 )
++      if ( GRID->myrow == 0 && mycol == 0 && j > 0 )
+       {
+           time = HPL_timer_walltime() - start_time;
+           gflops = 2.0*(N*(double)N*N - n*(double)n*n)/3.0/(time > 0.0 ? time : 1e-6)/1e9;
+@@ -191,15 +208,24 @@ void HPL_pdgesvK2
+       if( mycol == icurcol )
+       {
+          nn = HPL_numrocI( jb, j, nb, nb, mycol, 0, npcol );
++         start = get_timestamp();
+          for( k = 0; k < depth; k++ )   /* partial updates 0..depth-1 */
+             (void) HPL_pdupdate( NULL, NULL, panel[k], nn );
++         duration = get_timestamp() - start;
++         record_measure(__FILE__, __LINE__, "HPL_pdgesK2:update", start, duration, 0, NULL);
++         start = get_timestamp();
+          HPL_pdfact(       panel[depth] );    /* factor current panel */
++         duration = get_timestamp() - start;
++         record_measure(__FILE__, __LINE__, "HPL_pdgesK2:factor", start, duration, 0, NULL);
+       }
+       else { nn = 0; }
+           /* Finish the latest update and broadcast the current panel */
++      start = get_timestamp();
+       (void) HPL_binit( panel[depth] );
+       HPL_pdupdate( panel[depth], &test, panel[0], nq-nn );
+       (void) HPL_bwait( panel[depth] );
++      duration = get_timestamp() - start;
++      record_measure(__FILE__, __LINE__, "HPL_pdgesK2:update", start, duration, 0, NULL);
+ /*
+  * Circular  of the panel pointers:
+  * xtmp = x[0]; for( k=0; k < depth; k++ ) x[k] = x[k+1]; x[d] = xtmp;
+@@ -216,6 +242,7 @@ void HPL_pdgesvK2
+ /*
+  * Clean-up: Finish updates - release panels and panel list
+  */
++   start = get_timestamp();
+    nn = HPL_numrocI( 1, N, nb, nb, mycol, 0, npcol );
+    for( k = 0; k < depth; k++ )
+    {
+@@ -223,6 +250,8 @@ void HPL_pdgesvK2
+       (void) HPL_pdpanel_disp(  &panel[k] );
+    }
+    (void) HPL_pdpanel_disp( &panel[depth] );
++   duration = get_timestamp() - start;
++   record_measure(__FILE__, __LINE__, "HPL_pdgesK2:update", start, duration, 0, NULL);
+
+    if( panel ) free( panel );
+ /*
 '''
 
     first_bcast_trace_patch = r'''
