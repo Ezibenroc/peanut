@@ -142,7 +142,7 @@ def model_to_c_code(model):
 
 class SMPIHPL(AbstractHPL):
     installfile_types = {'stochastic_network': bool, 'stochastic_cpu': bool, 'disable_hpl_kernels': bool,
-                         'disable_nondgemm_randomness': bool, 'random_seed': int,
+            'disable_nondgemm_randomness': bool, 'loopback_model': bool, 'random_seed': int,
                          **AbstractHPL.installfile_types}
 
     def setup(self):
@@ -159,7 +159,10 @@ class SMPIHPL(AbstractHPL):
         self.apt_install('python3', 'libboost-dev', 'pajeng')
         self.git_clone('https://github.com/Ezibenroc/memwatch.git', 'memwatch')
         if install_options['stochastic_network']:
+            assert not install_options['loopback_model']
             simgrid_patch = self.simgrid_stochastic_patch
+        elif install_options['loopback_model']:
+            simgrid_patch = self.simgrid_loopback_patch
         else:
             simgrid_patch = None
         self.git_clone('https://framagit.org/simgrid/simgrid.git', 'simgrid',
@@ -1044,4 +1047,215 @@ index a85a3d5ed..ca09e78f5 100644
    if (action->latency_ > 0) {
      action->set_variable(get_maxmin_system()->variable_new(action, 0.0, -1.0, constraints_per_variable));
      if (get_update_algorithm() == Model::UpdateAlgo::LAZY) {
+'''
+
+    simgrid_loopback_patch = r'''
+diff --git a/src/simgrid/sg_config.cpp b/src/simgrid/sg_config.cpp
+index 553d43f539..161cf99c11 100644
+--- a/src/simgrid/sg_config.cpp
++++ b/src/simgrid/sg_config.cpp
+@@ -365,6 +365,18 @@ void sg_config_init(int *argc, char **argv)
+                                              "65472:11.6436;15424:3.48845;9376:2.59299;5776:2.18796;3484:1.88101;"
+                                              "1426:1.61075;732:1.9503;257:1.95341;0:2.01467");
+   simgrid::config::alias("smpi/lat-factor", {"smpi/lat_factor"});
++
++  simgrid::config::declare_flag<std::string>("smpi/loopback-bw-factor",
++                                             "Bandwidth factors for smpi loopback.",
++                                             "65472:0.940694;15424:0.697866;9376:0.58729;5776:1.08739;3484:0.77493;"
++                                             "1426:0.608902;732:0.341987;257:0.338112;0:0.812084");
++  simgrid::config::alias("smpi/loopback-bw-factor", {"smpi/loopback_bw_factor"});
++
++  simgrid::config::declare_flag<std::string>("smpi/loopback-lat-factor", "Latency factors for smpi loopback.",
++                                             "65472:11.6436;15424:3.48845;9376:2.59299;5776:2.18796;3484:1.88101;"
++                                             "1426:1.61075;732:1.9503;257:1.95341;0:2.01467");
++  simgrid::config::alias("smpi/loopback-lat-factor", {"smpi/loopback-lat_factor"});
++
+   simgrid::config::declare_flag<std::string>("smpi/IB-penalty-factors",
+                                              "Correction factor to communications using Infiniband model with "
+                                              "contention (default value based on Stampede cluster profiling)",
+diff --git a/src/surf/network_cm02.cpp b/src/surf/network_cm02.cpp
+index a85a3d5ed5..ceca5de00f 100644
+--- a/src/surf/network_cm02.cpp
++++ b/src/surf/network_cm02.cpp
+@@ -245,14 +245,14 @@ Action* NetworkCm02Model::communicate(s4u::Host* src, s4u::Host* dst, double siz
+         });
+   }
+
+-  double bandwidth_bound = route.empty() ? -1.0 : get_bandwidth_factor(size) * route.front()->get_bandwidth();
++  double bandwidth_bound = route.empty() ? -1.0 : get_bandwidth_factor(size, route.front()) * route.front()->get_bandwidth();
+
+   for (auto const& link : route)
+-    bandwidth_bound = std::min(bandwidth_bound, get_bandwidth_factor(size) * link->get_bandwidth());
++    bandwidth_bound = std::min(bandwidth_bound, get_bandwidth_factor(size, link) * link->get_bandwidth());
+
+   action->lat_current_ = action->latency_;
+-  action->latency_ *= get_latency_factor(size);
+-  action->rate_ = get_bandwidth_constraint(action->rate_, bandwidth_bound, size);
++  action->latency_ *= get_latency_factor(size, route.front());
++  action->rate_ = get_bandwidth_constraint(action->rate_, bandwidth_bound, size, route.front());
+
+   int constraints_per_variable = route.size();
+   constraints_per_variable += back_route.size();
+diff --git a/src/surf/network_interface.cpp b/src/surf/network_interface.cpp
+index 3c2dd98bfa..a12fa74404 100644
+--- a/src/surf/network_interface.cpp
++++ b/src/surf/network_interface.cpp
+@@ -38,17 +38,17 @@ simgrid::config::Flag<bool> NetworkModel::cfg_crosstraffic(
+
+ NetworkModel::~NetworkModel() = default;
+
+-double NetworkModel::get_latency_factor(double /*size*/)
++double NetworkModel::get_latency_factor(double /*size*/, LinkImpl* const &link)
+ {
+   return sg_latency_factor;
+ }
+
+-double NetworkModel::get_bandwidth_factor(double /*size*/)
++double NetworkModel::get_bandwidth_factor(double /*size*/, LinkImpl* const &link)
+ {
+   return sg_bandwidth_factor;
+ }
+
+-double NetworkModel::get_bandwidth_constraint(double rate, double /*bound*/, double /*size*/)
++double NetworkModel::get_bandwidth_constraint(double rate, double /*bound*/, double /*size*/, LinkImpl* const &link)
+ {
+   return rate;
+ }
+diff --git a/src/surf/network_interface.hpp b/src/surf/network_interface.hpp
+index 915a925049..f6facf97d1 100644
+--- a/src/surf/network_interface.hpp
++++ b/src/surf/network_interface.hpp
+@@ -74,7 +74,7 @@ public:
+    * @param size The size of the message.
+    * @return The latency factor.
+    */
+-  virtual double get_latency_factor(double size);
++  virtual double get_latency_factor(double size, LinkImpl* const &link);
+
+   /**
+    * @brief Get the right multiplicative factor for the bandwidth.
+@@ -86,7 +86,7 @@ public:
+    * @param size The size of the message.
+    * @return The bandwidth factor.
+    */
+-  virtual double get_bandwidth_factor(double size);
++  virtual double get_bandwidth_factor(double size, LinkImpl* const &link);
+
+   /**
+    * @brief Get definitive bandwidth.
+@@ -97,7 +97,7 @@ public:
+    * @param size The size of the message.
+    * @return The new bandwidth.
+    */
+-  virtual double get_bandwidth_constraint(double rate, double bound, double size);
++  virtual double get_bandwidth_constraint(double rate, double bound, double size, LinkImpl* const &link);
+   double next_occuring_event_full(double now) override;
+
+   LinkImpl* loopback_ = nullptr;
+diff --git a/src/surf/network_smpi.cpp b/src/surf/network_smpi.cpp
+index f220569a0a..ca5d28bfc4 100644
+--- a/src/surf/network_smpi.cpp
++++ b/src/surf/network_smpi.cpp
+@@ -13,6 +13,8 @@ XBT_LOG_EXTERNAL_DEFAULT_CATEGORY(surf_network);
+
+ std::vector<s_smpi_factor_t> smpi_bw_factor;
+ std::vector<s_smpi_factor_t> smpi_lat_factor;
++std::vector<s_smpi_factor_t> smpi_loopback_bw_factor;
++std::vector<s_smpi_factor_t> smpi_loopback_lat_factor;
+
+ /*********
+  * Model *
+@@ -49,45 +51,67 @@ NetworkSmpiModel::NetworkSmpiModel() : NetworkCm02Model()
+
+ NetworkSmpiModel::~NetworkSmpiModel() = default;
+
+-double NetworkSmpiModel::get_bandwidth_factor(double size)
++double NetworkSmpiModel::get_bandwidth_factor(double size, LinkImpl* const&link)
+ {
+   if (smpi_bw_factor.empty())
+     smpi_bw_factor = parse_factor(simgrid::config::get_value<std::string>("smpi/bw-factor"));
++  if (smpi_loopback_bw_factor.empty())
++    smpi_loopback_bw_factor = parse_factor(simgrid::config::get_value<std::string>("smpi/loopback-bw-factor"));
++
++  const std::string link_name = link->get_name();
++  bool is_loopback = (link_name.find("loopback") != std::string::npos);
++
++  std::vector<s_smpi_factor_t> *factors;
++  if(is_loopback)
++    factors = &smpi_loopback_bw_factor;
++  else
++    factors = &smpi_bw_factor;
+
+   double current = 1.0;
+-  for (auto const& fact : smpi_bw_factor) {
++  for (auto const& fact : *factors) {
+     if (size <= fact.factor) {
+       XBT_DEBUG("%f <= %zu return %f", size, fact.factor, current);
+       return current;
+     } else
+       current = fact.values.front();
+   }
+-  XBT_DEBUG("%f > %zu return %f", size, smpi_bw_factor.back().factor, current);
++  XBT_DEBUG("%f > %zu return %f", size, factors->back().factor, current);
+
+   return current;
+ }
+
+-double NetworkSmpiModel::get_latency_factor(double size)
++double NetworkSmpiModel::get_latency_factor(double size, LinkImpl* const&link)
+ {
+   if (smpi_lat_factor.empty())
+     smpi_lat_factor = parse_factor(simgrid::config::get_value<std::string>("smpi/lat-factor"));
++  if (smpi_loopback_lat_factor.empty())
++    smpi_loopback_lat_factor = parse_factor(simgrid::config::get_value<std::string>("smpi/loopback-lat-factor"));
++
++  const std::string link_name = link->get_name();
++  bool is_loopback = (link_name.find("loopback") != std::string::npos);
++
++  std::vector<s_smpi_factor_t> *factors;
++  if(is_loopback)
++    factors = &smpi_loopback_lat_factor;
++  else
++    factors = &smpi_lat_factor;
+
+   double current = 1.0;
+-  for (auto const& fact : smpi_lat_factor) {
++  for (auto const& fact : *factors) {
+     if (size <= fact.factor) {
+       XBT_DEBUG("%f <= %zu return %f", size, fact.factor, current);
+       return current;
+     } else
+       current = fact.values.front();
+   }
+-  XBT_DEBUG("%f > %zu return %f", size, smpi_lat_factor.back().factor, current);
++  XBT_DEBUG("%f > %zu return %f", size, factors->back().factor, current);
+
+   return current;
+ }
+
+-double NetworkSmpiModel::get_bandwidth_constraint(double rate, double bound, double size)
++double NetworkSmpiModel::get_bandwidth_constraint(double rate, double bound, double size, LinkImpl* const &link)
+ {
+-  return rate < 0 ? bound : std::min(bound, rate * get_bandwidth_factor(size));
++  return rate < 0 ? bound : std::min(bound, rate * get_bandwidth_factor(size, link));
+ }
+
+ /************
+diff --git a/src/surf/network_smpi.hpp b/src/surf/network_smpi.hpp
+index cecc750d38..4c1213dab2 100644
+--- a/src/surf/network_smpi.hpp
++++ b/src/surf/network_smpi.hpp
+@@ -17,9 +17,9 @@ public:
+   NetworkSmpiModel();
+   ~NetworkSmpiModel();
+
+-  double get_latency_factor(double size);
+-  double get_bandwidth_factor(double size);
+-  double get_bandwidth_constraint(double rate, double bound, double size);
++  double get_latency_factor(double size, LinkImpl* const &link);
++  double get_bandwidth_factor(double size, LinkImpl* const &link);
++  double get_bandwidth_constraint(double rate, double bound, double size, LinkImpl* const &link);
+ };
+ } // namespace resource
+ } // namespace kernel
 '''
