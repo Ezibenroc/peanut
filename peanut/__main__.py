@@ -13,6 +13,7 @@ from .smpi_hpl import SMPIHPL
 from .frequency_get import FrequencyGet
 from .sw4lite import SW4lite
 from .simdjson import Simdjson
+from .mpi_ring import MPIRing
 
 classes = [
     MPICalibration,
@@ -25,6 +26,7 @@ classes = [
     SW4lite,
     BitFlips,
     Simdjson,
+    MPIRing,
 ]
 
 entry_points = {cls.__name__: cls.main for cls in classes}
