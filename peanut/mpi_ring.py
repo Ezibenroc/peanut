@@ -36,7 +36,7 @@ class MPIRing(Job):
             'net-tools',
         )
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration',
-                checkout='7c1897a53c8bc204cd5e20fe0f0a269f35f18eb8')
+                checkout='d19a268aebf23aacd6f9adbf5e7af7e8bda90f2a')
         self.nodes.run('make test_ring', directory='platform-calibration/src/calibration')
         return self
 
@@ -86,6 +86,6 @@ class MPIRing(Job):
     def gen_exp(cls):
         sizes_com = {int(10**random.uniform(0, 9)) for _ in range(100)}
         exp = list(itertools.product(cls.all_op, sizes_com))
-        exp *= 5
+        exp *= 3
         random.shuffle(exp)
         return [{'operation': op, 'size': size} for op, size in exp]
