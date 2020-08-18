@@ -36,8 +36,24 @@ class MPIRing(Job):
             'net-tools',
         )
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration',
-                checkout='d19a268aebf23aacd6f9adbf5e7af7e8bda90f2a')
-        self.nodes.run('make test_ring', directory='platform-calibration/src/calibration')
+                checkout='78fd8ca996574a2ab1f53f3e662117cc28c4adf9')
+        # We install OpenBLAS
+        self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout='v0.3.1')
+        self.nodes.run('make -j 64', directory='openblas')
+        self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
+        self.nodes.run('ln -s libopenblas.so libblas.so', directory='lib')
+        # Then we compile our test program
+        self.nodes.run('BLAS_INSTALLATION=%s make test_ring' % self.nodes.working_dir,
+                directory='platform-calibration/src/calibration')
+        if self.nodes.frequency_information.active_driver == 'intel_pstate':
+            self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
+            self.nodes.disable_hyperthreading()
+            self.nodes.set_frequency_information_pstate(min_perf_pct=100, max_perf_pct=100)
+        else:
+            self.nodes.disable_hyperthreading()
+            self.nodes.set_frequency_performance()
+        self.nodes.disable_idle_state()
+        self.nodes.enable_turboboost()
         return self
 
     def run_exp(self):
@@ -65,6 +81,7 @@ class MPIRing(Job):
         cmd = 'mpirun --allow-run-as-root --report-bindings --timestamp-output -np %d' % nb_ranks
         cmd += ' -hostfile %s' % hostfile
         cmd += ' --rankfile %s' % rankfile
+        cmd += ' -x LD_LIBRARY_PATH=/tmp/lib'
         cmd += ' ./test_ring ./zoo_sizes %s' % expdir
         self.director.run(cmd, directory=path)
 
