@@ -36,7 +36,7 @@ class MPIRing(Job):
             'net-tools',
         )
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration',
-                checkout='b455639e1bf875fe6679a4260b6faa520338bb3a')
+                checkout='dff63df60714ffa84f5a20da1f011292f0dbbfd1')
         # We install OpenBLAS
         self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout='v0.3.1')
         self.nodes.run('make -j 64', directory='openblas')
