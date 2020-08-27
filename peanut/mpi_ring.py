@@ -5,7 +5,7 @@ from .peanut import Job, logger
 
 
 class MPIRing(Job):
-    installfile_types = {'monitoring': int}
+    installfile_types = {'monitoring': int, 'matrix_size': int}
     expfile_types = {'operation': str, 'size': int}
     all_op = ['Ring', 'RingRong']
     expfile_header_in_file = False
@@ -19,6 +19,8 @@ class MPIRing(Job):
             raise ValueError('Error with experiment %s, unknown operation.' % exp)
 
     def setup(self):
+        assert self.installfile is not None
+        install_options = self.installfile.content
         self.apt_install(
             'build-essential',
             'python3',
@@ -36,14 +38,15 @@ class MPIRing(Job):
             'net-tools',
         )
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration',
-                checkout='dff63df60714ffa84f5a20da1f011292f0dbbfd1')
+                checkout='0ab9b344281ffba987b4354969b366c2e1b7e924')
         # We install OpenBLAS
         self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout='v0.3.1')
         self.nodes.run('make -j 64', directory='openblas')
         self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
         self.nodes.run('ln -s libopenblas.so libblas.so', directory='lib')
         # Then we compile our test program
-        self.nodes.run('BLAS_INSTALLATION=%s make test_ring' % self.nodes.working_dir,
+        make_var = 'CFLAGS="-DMATRIX_SIZE=%d"' % install_options['matrix_size']
+        self.nodes.run('BLAS_INSTALLATION=%s make test_ring %s' % (self.nodes.working_dir, make_var),
                 directory='platform-calibration/src/calibration')
         if self.nodes.frequency_information.active_driver == 'intel_pstate':
             self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
