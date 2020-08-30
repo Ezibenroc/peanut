@@ -5,7 +5,7 @@ from .peanut import Job, logger
 
 
 class MPIRing(Job):
-    installfile_types = {'monitoring': int, 'matrix_size': int}
+    installfile_types = {'monitoring': int, 'matrix_size': int, 'reuse_buffer': bool}
     expfile_types = {'operation': str, 'size': int}
     all_op = ['Ring', 'RingRong']
     expfile_header_in_file = False
@@ -38,14 +38,15 @@ class MPIRing(Job):
             'net-tools',
         )
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration',
-                checkout='0ab9b344281ffba987b4354969b366c2e1b7e924')
+                checkout='a95ceaab259944f563ed603f2d1b22972129d2fc')
         # We install OpenBLAS
         self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout='v0.3.1')
         self.nodes.run('make -j 64', directory='openblas')
         self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
         self.nodes.run('ln -s libopenblas.so libblas.so', directory='lib')
         # Then we compile our test program
-        make_var = 'CFLAGS="-DMATRIX_SIZE=%d"' % install_options['matrix_size']
+        make_var = 'CFLAGS="-DMATRIX_SIZE=%d -DREUSE_BUFFER=%d"' % (install_options['matrix_size'],
+                int(install_options['reuse_buffer']))
         self.nodes.run('BLAS_INSTALLATION=%s make test_ring %s' % (self.nodes.working_dir, make_var),
                 directory='platform-calibration/src/calibration')
         if self.nodes.frequency_information.active_driver == 'intel_pstate':
