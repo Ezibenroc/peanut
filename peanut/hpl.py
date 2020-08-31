@@ -52,11 +52,6 @@ class HPL(AbstractHPL):
                 logger.error('Previous command failed with message %s' % msg)
             else:
                 break
-        self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
-        self.nodes.disable_hyperthreading()
-        self.nodes.set_frequency_information_pstate(min_perf_pct=100, max_perf_pct=100)
-        self.nodes.disable_idle_state()
-        self.nodes.enable_turboboost()
 
     def run_exp(self):
         assert self.installfile is not None

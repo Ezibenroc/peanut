@@ -27,15 +27,6 @@ class Simdjson(Job):
         self.git_clone('https://github.com/simdjson/simdjson.git', self.simdjson_dir, checkout=simdjson_version)
         self.nodes.write_files(self.benchmark_src, os.path.join(self.build_dir, 'benchmark.cpp'))
         self.nodes.run('c++ -O3 -std=c++17 -pthread  -o benchmark benchmark.cpp simdjson.cpp', directory=self.build_dir)
-        if self.nodes.frequency_information.active_driver == 'intel_pstate':
-            self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
-            self.nodes.disable_hyperthreading()
-            self.nodes.set_frequency_information_pstate(min_perf_pct=100, max_perf_pct=100)
-        else:
-            self.nodes.disable_hyperthreading()
-            self.nodes.set_frequency_performance()
-        self.nodes.disable_idle_state()
-        self.nodes.enable_turboboost()
 
 
     def run_exp(self):

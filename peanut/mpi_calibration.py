@@ -42,15 +42,6 @@ class MPICalibration(Job):
         )
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration')
         self.nodes.run('make', directory=self.path)
-        if self.nodes.frequency_information.active_driver == 'intel_pstate':
-            self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
-            self.nodes.disable_hyperthreading()
-            self.nodes.set_frequency_information_pstate(min_perf_pct=100, max_perf_pct=100)
-        else:
-            self.nodes.disable_hyperthreading()
-            self.nodes.set_frequency_performance()
-        self.nodes.disable_idle_state()
-        self.nodes.enable_turboboost()
         if install_options['background_stress']:
             self.start_stress()
         return self

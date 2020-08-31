@@ -34,10 +34,6 @@ class BitFlips(Job):
             make_option = ''
         self.nodes.run('make %s test_flips' % make_option, directory='stress-test')
         self.nodes.run('objdump -d test_flips | grep vfmadd231pd -A 10 -B 10', directory='stress-test')
-        self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
-        self.nodes.disable_hyperthreading()
-        self.nodes.set_frequency_information_pstate(min_perf_pct=100, max_perf_pct=100)
-        self.nodes.disable_idle_state()
         return self
 
     def run_exp(self):

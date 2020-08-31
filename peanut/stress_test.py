@@ -42,11 +42,6 @@ class StressTest(Job):
             'stress',
         )
         self.git_clone('https://github.com/Ezibenroc/Stress-Test', 'stress-test')
-        self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
-        self.nodes.disable_hyperthreading()
-        self.nodes.set_frequency_information_pstate(min_perf_pct=100, max_perf_pct=100)
-        self.nodes.disable_idle_state()
-        # self.nodes.disable_turboboost()
         return self
 
     def run_exp(self):

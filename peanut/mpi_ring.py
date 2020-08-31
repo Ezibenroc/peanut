@@ -5,7 +5,8 @@ from .peanut import Job, logger
 
 
 class MPIRing(Job):
-    installfile_types = {'monitoring': int, 'matrix_size': int, 'reuse_buffer': bool}
+    installfile_types = {'monitoring': int, 'matrix_size': int, 'reuse_buffer': bool,
+            'hyperthreading': bool, 'perf_pct': int, 'idle_state': bool, 'turboboost': bool}
     expfile_types = {'operation': str, 'size': int}
     all_op = ['Ring', 'RingRong']
     expfile_header_in_file = False
@@ -49,15 +50,6 @@ class MPIRing(Job):
                 int(install_options['reuse_buffer']))
         self.nodes.run('BLAS_INSTALLATION=%s make test_ring %s' % (self.nodes.working_dir, make_var),
                 directory='platform-calibration/src/calibration')
-        if self.nodes.frequency_information.active_driver == 'intel_pstate':
-            self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
-            self.nodes.disable_hyperthreading()
-            self.nodes.set_frequency_information_pstate(min_perf_pct=100, max_perf_pct=100)
-        else:
-            self.nodes.disable_hyperthreading()
-            self.nodes.set_frequency_performance()
-        self.nodes.disable_idle_state()
-        self.nodes.enable_turboboost()
         return self
 
     def run_exp(self):

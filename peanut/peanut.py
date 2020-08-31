@@ -805,6 +805,54 @@ class Job:
         self.apt_install('stress')
         self.nodes.run('stress -c %d -t %ds' % (4*len(self.nodes.cores), stress_duration))
 
+    def setup_cpu_perf(self):
+        '''
+        This function reads the installfile and setup various CPU characteristics: hyperthreading, CPU frequency,
+        C-states and turboboost. If there is no installfile or the aforementionned keys are not in the file, then
+        some default actions are applied.
+        '''
+        # For some unknown reason, if we want to both disable hyperthreading and change the frequency, we need to first
+        # decrease the frequency, then disable hyperthreading, then increase the frequency back
+        if self.nodes.frequency_information.active_driver == 'intel_pstate':
+            self.nodes.set_frequency_information_pstate(min_perf_pct=30, max_perf_pct=30)
+        # Hyper-threading
+        try:
+            hyperthreading = self.installfile.content['hyperthreading']
+        except (KeyError, AttributeError):  # no installfile or no such key
+            hyperthreading = False
+        if hyperthreading:
+            self.nodes.enable_hyperthreading()
+        else:
+            self.nodes.disable_hyperthreading()
+        # CPU frequency
+        if self.nodes.frequency_information.active_driver == 'intel_pstate':
+            try:
+                perf_pct = self.installfile.content['perf_pct']
+            except (KeyError, AttributeError):  # no installfile or no such key
+                perf_pct = 100
+            perf_pct = min(100, max(0, perf_pct))
+            self.nodes.set_frequency_information_pstate(min_perf_pct=perf_pct, max_perf_pct=perf_pct)
+        else:
+            self.nodes.set_frequency_performance()
+        # higher C-states (i.e. 'idle state')
+        try:
+            idle_state = self.installfile.content['idle_state']
+        except (KeyError, AttributeError):  # no installfile or no such key
+            idle_state = False
+        if idle_state:
+            self.nodes.enable_idle_state()
+        else:
+            self.nodes.disable_idle_state()
+        # Turboboost
+        try:
+            turboboost = self.installfile.content['turboboost']
+        except (KeyError, AttributeError):  # no installfile or no such key
+            turboboost = False
+        if turboboost:
+            self.nodes.enable_turboboost()
+        else:
+            self.nodes.disable_turboboost()
+
     def add_raw_information_to_archive(self):
         for host in self.hostnames:
             self.director.run('mkdir -p information/%s' % host)
@@ -1251,6 +1299,7 @@ class Job:
         if self.monitoring_period > 0:
             self.start_monitoring(self.monitoring_period)
         self.setup()
+        self.setup_cpu_perf()
         if self.warmup_duration > 0:
             self.perform_stress(self.warmup_duration)
         self.add_timestamp('setup', 'stop')
