@@ -143,6 +143,7 @@ def model_to_c_code(model):
 class SMPIHPL(AbstractHPL):
     installfile_types = {'stochastic_network': bool, 'stochastic_cpu': bool, 'disable_hpl_kernels': bool,
             'disable_nondgemm_randomness': bool, 'loopback_model': bool, 'random_seed': int,
+            'simgrid_version': str,
                          **AbstractHPL.installfile_types}
 
     def setup(self):
@@ -166,7 +167,7 @@ class SMPIHPL(AbstractHPL):
         else:
             simgrid_patch = None
         self.git_clone('https://framagit.org/simgrid/simgrid.git', 'simgrid',
-                       checkout='a6f883f0e28e60a805227007ec71cac80bced118', patch=simgrid_patch)
+                       checkout=install_options['simgrid_version'], patch=simgrid_patch)
         self.nodes.run('mkdir build && cd build && cmake -Denable_documentation=OFF ..', directory='simgrid')
         self.nodes.run('make -j 64 && make install', directory='simgrid/build')
         hpl_branch = 'generic_model'
