@@ -163,7 +163,7 @@ class SMPIHPL(AbstractHPL):
             assert not install_options['loopback_model']
             simgrid_patch = self.simgrid_stochastic_patch
         elif install_options['loopback_model']:
-            simgrid_patch = self.simgrid_loopback_patch
+            simgrid_patch = self.simgrid_loopback_patch + self.simgrid_debug_patch
         else:
             simgrid_patch = None
         self.git_clone('https://framagit.org/simgrid/simgrid.git', 'simgrid',
@@ -1246,4 +1246,111 @@ index 391509789c..031f779864 100644
  };
  } // namespace resource
  } // namespace kernel
+'''
+
+    simgrid_debug_patch = r'''
+diff --git a/include/simgrid/kernel/resource/Model.hpp b/include/simgrid/kernel/resource/Model.hpp
+index ac5ccd72ef..e94bb791dd 100644
+--- a/include/simgrid/kernel/resource/Model.hpp
++++ b/include/simgrid/kernel/resource/Model.hpp
+@@ -20,6 +20,7 @@ namespace resource {
+ class XBT_PUBLIC Model {
+ public:
+   /** @brief Possible update mechanisms */
++  std::string get_name() {return "unknown";};
+   enum class UpdateAlgo {
+     FULL, /**< Full update mechanism: the remaining time of every action is recomputed at each step */
+     LAZY  /**< Lazy update mechanism: only the modified actions get recomputed.
+diff --git a/src/kernel/resource/DiskImpl.hpp b/src/kernel/resource/DiskImpl.hpp
+index 11e4829e40..7f41311357 100644
+--- a/src/kernel/resource/DiskImpl.hpp
++++ b/src/kernel/resource/DiskImpl.hpp
+@@ -36,6 +36,7 @@ class DiskAction;
+  *********/
+ class DiskModel : public Model {
+ public:
++  std::string get_name() {return "disk";};
+   DiskModel();
+   DiskModel(const DiskModel&) = delete;
+   DiskModel& operator=(const DiskModel&) = delete;
+diff --git a/src/kernel/resource/Model.cpp b/src/kernel/resource/Model.cpp
+index 640df1ee84..0d95ce0651 100644
+--- a/src/kernel/resource/Model.cpp
++++ b/src/kernel/resource/Model.cpp
+@@ -60,8 +60,8 @@ double Model::next_occurring_event_lazy(double now)
+     double min   = -1;
+     double share = action->get_variable()->get_value();
+
++    double time_to_completion = -42;
+     if (share > 0) {
+-      double time_to_completion;
+       if (action->get_remains() > 0) {
+         time_to_completion = action->get_remains_no_update() / share;
+       } else {
+@@ -85,8 +85,40 @@ double Model::next_occurring_event_lazy(double now)
+     if (min > -1) {
+       action_heap_.update(action, min, action_type);
+       XBT_DEBUG("Insert at heap action(%p) min %f now %f", action, min, now);
+-    } else
++    } else {
++      char *action_type;
++      if(action->get_type() == ActionHeap::Type::latency)
++          action_type = "latency";
++      else if(action->get_type() == ActionHeap::Type::max_duration)
++          action_type = "max_duration";
++      else if(action->get_type() == ActionHeap::Type::normal)
++          action_type = "normal";
++      else if(action->get_type() == ActionHeap::Type::unset)
++          action_type = "unset";
++      else
++          action_type = "error:unknown";
++
++      fprintf(stderr, "## ERROR ##\n\n");
++      fprintf(stderr, "action->get_type()              = %s\n", action_type);
++      fprintf(stderr, "action->get_model()->get_name() = %s\n", action->get_model()->get_name().c_str());
++      fprintf(stderr, "action->get_sharing_penalty()   = %e\n", action->get_sharing_penalty());
++      fprintf(stderr, "action->get_max_duration()      = %e\n", action->get_max_duration());
++      fprintf(stderr, "action->get_remains()           = %e\n", action->get_remains());
++      fprintf(stderr, "action->get_remains_no_update() = %e\n", action->get_remains_no_update());
++      fprintf(stderr, "action->get_start_time()        = %e\n", action->get_start_time());
++      fprintf(stderr, "action->get_finish_time()       = %e\n", action->get_finish_time());
++      fprintf(stderr, "action->get_cost()              = %e\n", action->get_cost());
++      fprintf(stderr, "action->get_last_update()       = %e\n", action->get_last_update());
++      fprintf(stderr, "action->get_last_value()        = %e\n", action->get_last_value());
++      fprintf(stderr, "share                           = %e\n", share);
++      fprintf(stderr, "min                             = %e\n", min);
++      fprintf(stderr, "now                             = %e\n", now);
++      fprintf(stderr, "time_to_completion              = %e\n", time_to_completion);
++      fprintf(stderr, "\n");
++
++
+       DIE_IMPOSSIBLE;
++    }
+   }
+
+   // hereafter must have already the min value for this resource model
+diff --git a/src/surf/cpu_interface.hpp b/src/surf/cpu_interface.hpp
+index 0215897243..8db117ded6 100644
+--- a/src/surf/cpu_interface.hpp
++++ b/src/surf/cpu_interface.hpp
+@@ -27,6 +27,7 @@ namespace resource {
+  */
+ class XBT_PUBLIC CpuModel : public Model {
+ public:
++  std::string get_name() {return "CPU";};
+   explicit CpuModel(Model::UpdateAlgo algo) : Model(algo) {}
+
+   /**
+diff --git a/src/surf/network_interface.hpp b/src/surf/network_interface.hpp
+index c48f4649d4..a628bc1508 100644
+--- a/src/surf/network_interface.hpp
++++ b/src/surf/network_interface.hpp
+@@ -32,6 +32,7 @@ namespace resource {
+  */
+ class NetworkModel : public Model {
+ public:
++  std::string get_name() {return "network";};
+   static config::Flag<double> cfg_tcp_gamma;
+   static config::Flag<bool> cfg_crosstraffic;
+
 '''
