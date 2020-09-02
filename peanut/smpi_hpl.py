@@ -1036,10 +1036,10 @@ index a85a3d5ed..ca09e78f5 100644
 
     simgrid_loopback_patch = r'''
 diff --git a/src/simgrid/sg_config.cpp b/src/simgrid/sg_config.cpp
-index 553d43f539..161cf99c11 100644
+index 6e09b7661e..524c4179fe 100644
 --- a/src/simgrid/sg_config.cpp
 +++ b/src/simgrid/sg_config.cpp
-@@ -365,6 +365,18 @@ void sg_config_init(int *argc, char **argv)
+@@ -362,6 +362,18 @@ void sg_config_init(int *argc, char **argv)
                                               "65472:11.6436;15424:3.48845;9376:2.59299;5776:2.18796;3484:1.88101;"
                                               "1426:1.61075;732:1.9503;257:1.95341;0:2.01467");
    simgrid::config::alias("smpi/lat-factor", {"smpi/lat_factor"});
@@ -1059,10 +1059,10 @@ index 553d43f539..161cf99c11 100644
                                               "Correction factor to communications using Infiniband model with "
                                               "contention (default value based on Stampede cluster profiling)",
 diff --git a/src/surf/network_cm02.cpp b/src/surf/network_cm02.cpp
-index a85a3d5ed5..ceca5de00f 100644
+index 25b0ba3211..8624c7ed56 100644
 --- a/src/surf/network_cm02.cpp
 +++ b/src/surf/network_cm02.cpp
-@@ -245,14 +245,14 @@ Action* NetworkCm02Model::communicate(s4u::Host* src, s4u::Host* dst, double siz
+@@ -200,14 +200,15 @@ Action* NetworkCm02Model::communicate(s4u::Host* src, s4u::Host* dst, double siz
          });
    }
 
@@ -1078,14 +1078,15 @@ index a85a3d5ed5..ceca5de00f 100644
 -  action->rate_ = get_bandwidth_constraint(action->rate_, bandwidth_bound, size);
 +  action->latency_ *= get_latency_factor(size, route.front());
 +  action->rate_ = get_bandwidth_constraint(action->rate_, bandwidth_bound, size, route.front());
++
 
-   int constraints_per_variable = route.size();
+   size_t constraints_per_variable = route.size();
    constraints_per_variable += back_route.size();
 diff --git a/src/surf/network_interface.cpp b/src/surf/network_interface.cpp
-index 3c2dd98bfa..a12fa74404 100644
+index ccb7e034fc..172c058d3d 100644
 --- a/src/surf/network_interface.cpp
 +++ b/src/surf/network_interface.cpp
-@@ -38,17 +38,17 @@ simgrid::config::Flag<bool> NetworkModel::cfg_crosstraffic(
+@@ -39,17 +39,17 @@ simgrid::config::Flag<bool> NetworkModel::cfg_crosstraffic(
 
  NetworkModel::~NetworkModel() = default;
 
@@ -1107,10 +1108,10 @@ index 3c2dd98bfa..a12fa74404 100644
    return rate;
  }
 diff --git a/src/surf/network_interface.hpp b/src/surf/network_interface.hpp
-index 915a925049..f6facf97d1 100644
+index 3ecd3bbd5e..a17e154f28 100644
 --- a/src/surf/network_interface.hpp
 +++ b/src/surf/network_interface.hpp
-@@ -74,7 +74,7 @@ public:
+@@ -72,7 +72,7 @@ public:
     * @param size The size of the message.
     * @return The latency factor.
     */
@@ -1119,7 +1120,7 @@ index 915a925049..f6facf97d1 100644
 
    /**
     * @brief Get the right multiplicative factor for the bandwidth.
-@@ -86,7 +86,7 @@ public:
+@@ -83,7 +83,7 @@ public:
     * @param size The size of the message.
     * @return The bandwidth factor.
     */
@@ -1128,17 +1129,17 @@ index 915a925049..f6facf97d1 100644
 
    /**
     * @brief Get definitive bandwidth.
-@@ -97,7 +97,7 @@ public:
+@@ -94,7 +94,7 @@ public:
     * @param size The size of the message.
     * @return The new bandwidth.
     */
 -  virtual double get_bandwidth_constraint(double rate, double bound, double size);
 +  virtual double get_bandwidth_constraint(double rate, double bound, double size, LinkImpl* const &link);
-   double next_occuring_event_full(double now) override;
+   double next_occurring_event_full(double now) override;
 
    LinkImpl* loopback_ = nullptr;
 diff --git a/src/surf/network_smpi.cpp b/src/surf/network_smpi.cpp
-index f220569a0a..ca5d28bfc4 100644
+index 2c9ab11646..e07a55fef7 100644
 --- a/src/surf/network_smpi.cpp
 +++ b/src/surf/network_smpi.cpp
 @@ -13,6 +13,8 @@ XBT_LOG_EXTERNAL_DEFAULT_CATEGORY(surf_network);
@@ -1150,15 +1151,15 @@ index f220569a0a..ca5d28bfc4 100644
 
  /*********
   * Model *
-@@ -49,45 +51,67 @@ NetworkSmpiModel::NetworkSmpiModel() : NetworkCm02Model()
-
- NetworkSmpiModel::~NetworkSmpiModel() = default;
+@@ -47,45 +49,69 @@ NetworkSmpiModel::NetworkSmpiModel() : NetworkCm02Model()
+   /* Do not add this into all_existing_models: our ancestor already does so */
+ }
 
 -double NetworkSmpiModel::get_bandwidth_factor(double size)
 +double NetworkSmpiModel::get_bandwidth_factor(double size, LinkImpl* const&link)
  {
    if (smpi_bw_factor.empty())
-     smpi_bw_factor = parse_factor(simgrid::config::get_value<std::string>("smpi/bw-factor"));
+     smpi_bw_factor = parse_factor(config::get_value<std::string>("smpi/bw-factor"));
 +  if (smpi_loopback_bw_factor.empty())
 +    smpi_loopback_bw_factor = parse_factor(simgrid::config::get_value<std::string>("smpi/loopback-bw-factor"));
 +
@@ -1170,6 +1171,7 @@ index f220569a0a..ca5d28bfc4 100644
 +    factors = &smpi_loopback_bw_factor;
 +  else
 +    factors = &smpi_bw_factor;
++
 
    double current = 1.0;
 -  for (auto const& fact : smpi_bw_factor) {
@@ -1190,7 +1192,7 @@ index f220569a0a..ca5d28bfc4 100644
 +double NetworkSmpiModel::get_latency_factor(double size, LinkImpl* const&link)
  {
    if (smpi_lat_factor.empty())
-     smpi_lat_factor = parse_factor(simgrid::config::get_value<std::string>("smpi/lat-factor"));
+     smpi_lat_factor = parse_factor(config::get_value<std::string>("smpi/lat-factor"));
 +  if (smpi_loopback_lat_factor.empty())
 +    smpi_loopback_lat_factor = parse_factor(simgrid::config::get_value<std::string>("smpi/loopback-lat-factor"));
 +
@@ -1202,6 +1204,7 @@ index f220569a0a..ca5d28bfc4 100644
 +    factors = &smpi_loopback_lat_factor;
 +  else
 +    factors = &smpi_lat_factor;
++
 
    double current = 1.0;
 -  for (auto const& fact : smpi_lat_factor) {
@@ -1224,15 +1227,15 @@ index f220569a0a..ca5d28bfc4 100644
 -  return rate < 0 ? bound : std::min(bound, rate * get_bandwidth_factor(size));
 +  return rate < 0 ? bound : std::min(bound, rate * get_bandwidth_factor(size, link));
  }
-
- /************
+ } // namespace resource
+ } // namespace kernel
 diff --git a/src/surf/network_smpi.hpp b/src/surf/network_smpi.hpp
-index cecc750d38..4c1213dab2 100644
+index 391509789c..031f779864 100644
 --- a/src/surf/network_smpi.hpp
 +++ b/src/surf/network_smpi.hpp
 @@ -17,9 +17,9 @@ public:
    NetworkSmpiModel();
-   ~NetworkSmpiModel();
+   ~NetworkSmpiModel() = default;
 
 -  double get_latency_factor(double size);
 -  double get_bandwidth_factor(double size);
