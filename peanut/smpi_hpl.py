@@ -446,22 +446,6 @@ index c34be62..a610089 100644
  # - F77 / C interface --------------------------------------------------
  '''
 
-    simgrid_loopback_patch = '''
-diff --git a/src/surf/sg_platf.cpp b/src/surf/sg_platf.cpp
-index f521fd925..fcb273088 100644
---- a/src/surf/sg_platf.cpp
-+++ b/src/surf/sg_platf.cpp
-@@ -220,7 +220,7 @@ void sg_platf_new_cluster(simgrid::kernel::routing::ClusterCreationArgs* cluster
-       link.id        = tmp_link;
-       link.bandwidth = cluster->loopback_bw;
-       link.latency   = cluster->loopback_lat;
--      link.policy    = simgrid::s4u::Link::SharingPolicy::FATPIPE;
-+      link.policy    = simgrid::s4u::Link::SharingPolicy::SHARED;
-       sg_platf_new_link(&link);
-       linkUp   = simgrid::s4u::Link::by_name_or_null(tmp_link);
-       linkDown = simgrid::s4u::Link::by_name_or_null(tmp_link);
-'''
-
     blas_randomization_patch = r'''
 diff --git a/include/hpl_blas.h b/include/hpl_blas.h
 index 023ec77..741b225 100644
