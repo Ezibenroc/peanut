@@ -847,7 +847,7 @@ class Job:
         try:
             turboboost = self.installfile.content['turboboost']
         except (KeyError, AttributeError):  # no installfile or no such key
-            turboboost = False
+            turboboost = True
         if turboboost:
             self.nodes.enable_turboboost()
         else:
