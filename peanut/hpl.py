@@ -5,7 +5,7 @@ from .abstract_hpl import AbstractHPL
 
 
 class HPL(AbstractHPL):
-    installfile_types = {'warmup_time': int, 'trace_dgemm': bool, 'monitoring': int,
+    installfile_types = {'warmup_time': int, 'trace_dgemm': bool, 'monitoring': int, 'openmpi': str,
                          **AbstractHPL.installfile_types}
     def install_akypuera(self):
         self.git_clone('https://github.com/Ezibenroc/akypuera.git', 'akypuera', recursive=True,
@@ -21,10 +21,7 @@ class HPL(AbstractHPL):
         super().setup()
         assert self.installfile is not None
         install_options = self.installfile.content
-        self.apt_install(
-            'openmpi-bin',
-            'libopenmpi-dev',
-        )
+        self.install_openmpi(install_options['openmpi'])
         if install_options['trace_execution']:
             self.apt_install('pajeng')
             self.install_akypuera()

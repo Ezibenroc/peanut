@@ -4,7 +4,7 @@ from .peanut import Job, logger
 
 
 class MPICalibration(Job):
-    installfile_types = {'monitoring': int, 'background_stress': bool}
+    installfile_types = {'monitoring': int, 'background_stress': bool, 'openmpi': str}
     expfile_types = {'operation': str, 'size': int}
     op_com = ['Recv', 'Isend', 'PingPong']
     op_test = ['Wtime', 'Iprobe', 'Test']
@@ -32,14 +32,13 @@ class MPICalibration(Job):
             'make',
             'git',
             'time',
-            'libopenmpi-dev',
-            'openmpi-bin',
             'libxml2',
             'libxml2-dev',
             'hwloc',
             'pciutils',
             'net-tools',
         )
+        self.install_openmpi(install_options['openmpi'])
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration')
         self.nodes.run('make', directory=self.path)
         if install_options['background_stress']:

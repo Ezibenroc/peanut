@@ -5,7 +5,7 @@ from .peanut import Job, logger
 
 
 class MPIRing(Job):
-    installfile_types = {'monitoring': int, 'matrix_size': int, 'reuse_buffer': bool,
+    installfile_types = {'monitoring': int, 'matrix_size': int, 'reuse_buffer': bool, 'openmpi': str,
             'hyperthreading': bool, 'perf_pct': int, 'idle_state': bool, 'turboboost': bool}
     expfile_types = {'operation': str, 'size': int}
     all_op = ['Ring', 'RingRong']
@@ -30,14 +30,13 @@ class MPIRing(Job):
             'make',
             'git',
             'time',
-            'libopenmpi-dev',
-            'openmpi-bin',
             'libxml2',
             'libxml2-dev',
             'hwloc',
             'pciutils',
             'net-tools',
         )
+        self.install_openmpi(install_options['openmpi'])
         self.git_clone('https://github.com/Ezibenroc/platform-calibration.git', 'platform-calibration',
                 checkout='a95ceaab259944f563ed603f2d1b22972129d2fc')
         # We install OpenBLAS

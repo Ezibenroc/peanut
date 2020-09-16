@@ -1058,6 +1058,21 @@ class Job:
                 logger.warning(e)
                 self.director.get(self.archive_name, self.archive_name)
 
+
+    def install_openmpi(self, version):
+        major = int(version[0])
+        assert major in {1,2,3,4}
+        minor = int(version[2])
+        url = 'https://download.open-mpi.org/release/open-mpi/v%d.%d/openmpi-%s.tar.gz' % (major, minor, version)
+        self.nodes.run('wget %s -O openmpi.tar.gz' % url)
+        self.nodes.run('tar -xvf openmpi.tar.gz')
+        mpi_dir = 'openmpi-%s' % version
+        self.nodes.run('./configure', directory=mpi_dir)
+        self.nodes.run('make -j 32', directory=mpi_dir)
+        self.nodes.run('make install', directory=mpi_dir)
+        self.nodes.run('ldconfig')
+
+
     def send_key(self):
         if not self.deploy:  # no need for that if this is not a fresh deploy
             return

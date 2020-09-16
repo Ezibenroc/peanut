@@ -20,7 +20,7 @@ class AbstractHPL(Job):
                     'thread_per_process': range(1, 129),
                     }
     expfile_types = {fact: int for fact in expfile_sets}
-    installfile_types = {'trace_execution': bool, 'terminate_early': bool, 'insert_bcast': bool}
+    installfile_types = {'trace_execution': bool, 'terminate_early': bool, 'insert_bcast': bool, 'openblas': str}
 
     @classmethod
     def check_exp(cls, exp):
@@ -29,6 +29,8 @@ class AbstractHPL(Job):
                 raise ValueError('Error with exp %s: wrong value for factor %s (%s).' % (exp, fact, exp[fact]))
 
     def setup(self):
+        assert self.installfile is not None
+        install_options = self.installfile.content
         self.apt_install(
             'build-essential',
             'zip',
@@ -41,7 +43,7 @@ class AbstractHPL(Job):
             'cpufrequtils',
             'linux-cpupower',
         )
-        self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout='v0.3.1')
+        self.git_clone('https://github.com/xianyi/OpenBLAS.git', 'openblas', checkout=install_options['openblas'])
         self.nodes.run('make -j 64', directory='openblas')
         self.nodes.run('make install PREFIX=%s' % self.nodes.working_dir, directory='openblas')
 
