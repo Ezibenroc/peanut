@@ -14,6 +14,7 @@ from .frequency_get import FrequencyGet
 from .sw4lite import SW4lite
 from .simdjson import Simdjson
 from .mpi_ring import MPIRing
+from .memory_calibration import MemoryCalibration
 
 classes = [
     MPICalibration,
@@ -27,6 +28,7 @@ classes = [
     BitFlips,
     Simdjson,
     MPIRing,
+    MemoryCalibration,
 ]
 
 entry_points = {cls.__name__: cls.main for cls in classes}
