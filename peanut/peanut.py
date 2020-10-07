@@ -463,7 +463,7 @@ class Job:
     deployment_images = ['debian%d-x64-%s' % (version, mode) for version in [9, 10] for mode in ['min', 'base', 'nfs', 'big']]
     clusters = {
         'grenoble': ['dahu', 'yeti', 'troll'],
-        'lyon': ['sagittaire', 'hercule', 'orion', 'taurus', 'nova'],
+        'lyon': ['sagittaire', 'hercule', 'orion', 'taurus', 'nova', 'pyxis'],
         'nancy': ['griffon', 'graphene', 'graphite', 'grimoire', 'grisou', 'graphique', 'graoully', 'grimani', 'grele',
                   'grvingt', 'gros'],
         'rennes': ['parapide', 'parapluie', 'paranoia', 'parasilo', 'paravance'],
@@ -473,12 +473,17 @@ class Job:
         'nantes': ['econome', 'ecotype']
     }
     sites = {cluster: site for site, cluster_list in clusters.items() for cluster in cluster_list}
-    special_clusters = {
+    special_queues = {
         'testing': [],
         'production': ['graphique', 'graoully', 'grimani', 'grele', 'grvingt'],
     }
-    queues = {cluster: queue for queue, cluster_list in special_clusters.items() for cluster in cluster_list}
-    queues = collections.defaultdict(lambda: 'default', queues)
+    special_types = {
+        'exotic': ['pyxis']
+    }
+    cluster_queues = {cluster: queue for queue, cluster_list in special_queues.items() for cluster in cluster_list}
+    cluster_queues = collections.defaultdict(lambda: 'default', cluster_queues)
+    cluster_types  = {cluster: queue for queue, cluster_list in special_types.items() for cluster in cluster_list}
+    cluster_types  = collections.defaultdict(lambda: None, cluster_types)
 
     def __init__(self, jobid, frontend, deploy=False):
         self.start_time = time.time()
@@ -618,7 +623,7 @@ class Job:
             raise PeanutError('Peanut version mismatch between the %s and the client: %s' % (name, err))
 
     @classmethod
-    def oarsub(cls, frontend, constraint, walltime, nb_nodes, *,
+    def oarsub(cls, frontend, constraint, walltime, nb_nodes, *, type_=None,
                deploy=False, queue=None, script=None, container=None, reservation=None):
         name = cls.__name__
         constraint = '%s/nodes=%s,walltime=%s' % (
@@ -626,6 +631,8 @@ class Job:
         deploy_str = '-t deploy ' if deploy else '-t allow_classic_ssh'
         queue_str = '-q %s ' % queue if queue else ''
         cmd = 'oarsub --checkpoint 120 -n "%s" %s%s -l "%s"' % (name, queue_str, deploy_str, constraint)
+        if type_:
+            cmd += ' -t %s' % type_
         if script:
             if reservation is not None:
                 if reservation in {'day', 'night'}:
@@ -654,10 +661,11 @@ class Job:
     def oarsub_cluster(cls, username, cluster, walltime, nb_nodes, *,
                        deploy=False, script=None, container=None, reservation=None):
         site = cls.sites[cluster]
-        queue = cls.queues[cluster]
+        queue = cls.cluster_queues[cluster]
+        type_ = cls.cluster_types[cluster]
         frontend = cls.g5k_frontend(site, username)
         constraint = "{cluster in ('%s')}" % cluster
-        return cls.oarsub(frontend, constraint, walltime, nb_nodes, deploy=deploy,
+        return cls.oarsub(frontend, constraint, walltime, nb_nodes, deploy=deploy, type_=type_,
                           queue=queue, script=script, container=container, reservation=reservation)
 
     @classmethod
@@ -674,13 +682,14 @@ class Job:
                          deploy=False, script=None, container=None, reservation=None):
         cluster = cls._check_hostnames(hostnames)
         site = cls.sites[cluster]
-        queue = cls.queues[cluster]
+        queue = cls.cluster_queues[cluster]
+        type_ = cls.cluster_types[cluster]
         frontend = cls.g5k_frontend(site, username)
         hostnames = ["'%s'" % cls.expandg5k(host, site) for host in hostnames]
         constraint = "{network_address in (%s)}" % ', '.join(hostnames)
         if nb_nodes is None:
             nb_nodes = len(hostnames)
-        return cls.oarsub(frontend, constraint, walltime, nb_nodes, deploy=deploy,
+        return cls.oarsub(frontend, constraint, walltime, nb_nodes, deploy=deploy, type_=type_,
                           queue=queue, script=script, container=container, reservation=reservation)
 
     @classmethod
