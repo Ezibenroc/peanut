@@ -336,9 +336,12 @@ class Nodes:
             governors = gov_info.pop()
             active_driver = self.run_unique('cpufreq-info -d').stdout.strip()
             idle_driver = self.run_unique('cat /sys/devices/system/cpu/cpuidle/current_driver').stdout.strip()
-            idle_files = self.run_unique('ls /sys/devices/system/cpu/cpu0/cpuidle').stdout.split()
-            nb_states = len(idle_files)
-            assert idle_files == ['state%d' % i for i in range(nb_states)]
+            if idle_driver != 'none':
+                idle_files = self.run_unique('ls /sys/devices/system/cpu/cpu0/cpuidle').stdout.split()
+                nb_states = len(idle_files)
+                assert idle_files == ['state%d' % i for i in range(nb_states)]
+            else:
+                nb_states = 0
             tuple_cls = collections.namedtuple('frequency_information', ['active_driver', 'idle_driver', 'governor',
                                                                          'idle_states', 'min_freq', 'max_freq'])
             self.__frequency_information = tuple_cls(active_driver, idle_driver, tuple(governors), range(nb_states)[1:],
@@ -427,7 +430,10 @@ class Nodes:
         if self.frequency_information.active_driver == 'intel_pstate':
             self.write_files(str(1-value), '/sys/devices/system/cpu/intel_pstate/no_turbo')
         else:
-            self.write_files(str(value), '/sys/devices/system/cpu/cpufreq/boost')
+            try:
+                self.write_files(str(value), '/sys/devices/system/cpu/cpufreq/boost')
+            except RunError:
+                logger.warning('No turboboost available on these nodes.')
 
     def enable_turboboost(self):
         self.__set_turboboost(1)
@@ -788,7 +794,7 @@ class Job:
     def start_monitoring(self, period=1):
         self.git_clone('https://github.com/Ezibenroc/ratatouille.git', 'ratatouille',
                         checkout='0.0.5')
-        self.nodes.run('pip3 install pandas')  # pandas is a minor dependency, required for ratatouille merge
+        self.apt_install('python3-pandas')  # pandas is a minor dependency, required for ratatouille merge
         self.nodes.run('pip3 install .', directory='ratatouille')
         self.nodes.run('ratatouille --git-version')
         command = 'ratatouille collect -t %d all monitoring.csv' % period
@@ -1310,6 +1316,8 @@ class Job:
             'python3-dev',
             'python3-pip',
             'python3-setuptools',
+            'libssl-dev',
+            'libffi-dev',
             'zip',
             'make',
             'git',

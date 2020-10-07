@@ -71,14 +71,18 @@ class BLASCalibration(Job):
             self.nodes.run('awk \'{print $0",all"}\' %s > tmp && mv tmp %s' % (filename, filename), directory=path)
         else:
             numactl_str = 'numactl --physcpubind=%d --localalloc'
-            monocore_files = []
-            for i in range(nb_cores):
+            monocore_files = {}
+            cores = [c[0] for c in self.nodes.cores]
+            for i in cores:
                 numactl = numactl_str % i
                 filename = 'result_monocore_%d.csv' % i
-                monocore_files.append(filename)
+                monocore_files[i] = filename
                 command = 'tmux new-session -d -s tmux_blas_%d "OMP_NUM_THREADS=1' % i
                 command += ' %s %s %s -l 1 -o %s"' % (ldlib, numactl, cmd, filename)
                 self.nodes.run(command, directory=path)
+            nb = int(self.nodes.run_unique('tmux ls | grep tmux_blas | wc -l').stdout.strip())
+            if nb != nb_cores:
+                logger.warning('Started %d processes, but only %d are alive' % (nb_cores, nb))
             # Waiting for all the commands to be finished
             waiting_nodes = list(self.nodes)
             while len(waiting_nodes) > 0:
@@ -90,9 +94,9 @@ class BLASCalibration(Job):
                 else:  # this node has not finished yet
                     time.sleep(60)
             # Adding a core ID column to each file, then merge all the files into a single one
-            for core, filename in enumerate(monocore_files):
+            for core, filename in monocore_files.items():
                 self.nodes.run('awk \'{print $0",%d"}\' %s > tmp && mv tmp %s' % (core, filename, filename), directory=path)
-            self.nodes.run('cat %s > ./result.csv' % (' '.join(monocore_files)), directory=path)
+            self.nodes.run('cat %s > ./result.csv' % (' '.join(monocore_files.values())), directory=path)
         # Adding a hostname column to each file
         result_files = []
         for node in self.nodes:
