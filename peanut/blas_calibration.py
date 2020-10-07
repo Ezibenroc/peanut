@@ -52,6 +52,13 @@ class BLASCalibration(Job):
                        directory='platform-calibration/src/calibration')
         return self
 
+    @staticmethod
+    def get_alloc_size(experiments):
+        max_m = max(exp['m'] for exp in experiments)
+        max_n = max(exp['n'] for exp in experiments)
+        max_k = max(exp['k'] for exp in experiments)
+        return (max_m*max_k + max_k*max_n + max_m*max_n)*8
+
     def run_exp(self):
         assert self.installfile is not None
         install_options = self.installfile.content
@@ -61,6 +68,17 @@ class BLASCalibration(Job):
         ldlib = 'LD_LIBRARY_PATH=%s/lib' % self.nodes.working_dir
         cmd = './calibrate_blas -s ./zoo_sizes'
         nb_cores = len(self.nodes.cores)
+        alloc_size = self.get_alloc_size(expfile)
+        if not install_options['multicore']:
+            alloc_size *= nb_cores
+        mem_available = self.nodes.run('grep MemAvailable /proc/meminfo')
+        for node, result in mem_available.items():
+            available = result.stdout.strip().split(' ')
+            assert available[-1] == 'kB'
+            available = int(available[-2]) * 1024
+            if available < alloc_size:
+                msg = 'The experiment will allocate about %d GB of memory, but only %d GB are available on node %s'
+                logger.warning(msg % (alloc_size*1e-9, available*1e-9, node.host))
         path = '/tmp/platform-calibration/src/calibration'
         self.nodes.write_files(expfile.raw_content, path + '/zoo_sizes')
         if install_options['multicore']:
