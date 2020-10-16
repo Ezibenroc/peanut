@@ -1077,6 +1077,12 @@ class Job:
 
 
     def install_openmpi(self, version):
+        if version == 'distribution_package':
+            self.apt_install(
+                'openmpi-bin',
+                'libopenmpi-dev',
+            )
+            return
         major = int(version[0])
         assert major in {1,2,3,4}
         minor = int(version[2])
