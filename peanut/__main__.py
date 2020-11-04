@@ -2,6 +2,7 @@ import argparse
 import zipfile
 import yaml
 import os
+from .peanut import Job
 from .mpi_calibration import MPICalibration
 from .mpi_saturation import MPISaturation
 from .hpl import HPL
@@ -65,13 +66,32 @@ entry_points['replay'] = replay
 
 def main():
     parser = argparse.ArgumentParser(description='Peanut, the tiny job runner')
-    parser.add_argument('command', choices=entry_points.keys(), help='Experiment to run.')
+    parser.add_argument('command', type=str, help='Experiment to run.')
     parser.add_argument('--version', action='version',
                         version='%(prog)s {version}'.format(version=__version__))
     parser.add_argument('--git-version', action='version',
                         version='%(prog)s {version}'.format(version=__git_version__))
     args, command_args = parser.parse_known_args()
-    entry_points[args.command](command_args)
+    try:
+        func = entry_points[args.command]
+    except KeyError:
+        if not os.path.isfile(args.command):
+            parser.error('Either provide your own Python script or choose from %s' % ', '.join(entry_points.keys()))
+        else:  # some black magic to import the provided Python file
+            import importlib.util
+            import inspect
+            spec = importlib.util.spec_from_file_location("my_module", args.command)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            clsmembers = inspect.getmembers(module, inspect.isclass)
+            clsmembers = [(name, cls) for (name, cls) in clsmembers if issubclass(cls, Job) and cls != Job]
+            if len(clsmembers) == 0:
+                parser.error('Did not find any class inheriting from %s in file %s' % (Job.__name__, args.command))
+            if len(clsmembers) > 1:
+                parser.error('Found more than one class inheriting from %s in file %s:\n%s' % (Job.__name__,
+                    args.command, ', '.join([name for (name, cls) in clsmembers])))
+            func = clsmembers[0][1].main
+    func(command_args)
 
 
 if __name__ == '__main__':
