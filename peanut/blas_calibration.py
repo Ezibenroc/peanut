@@ -200,6 +200,21 @@ class BLASCalibration(Job):
         for i in range(1, 5):
             sizes.append((i, i, i))
         random.shuffle(sizes)
+        # Now, let's estimate the duration and the performance for this sample.
+        # We will use regression coefficients computed for CPU 0 of dahu-1 between 2019-10-18 and 2020-05-05
+        total_flops = 0
+        total_duration = 0
+        mnk       = 7.335735e-11
+        mn        = 5.547941e-11
+        nk        = 3.463183e-09
+        mk        = 2.369342e-09
+        intercept = 2.457025e-06
+        for m, n, k in sizes:
+            total_flops += 2*m*n*k
+            total_duration += intercept + mnk*m*n*k + mn*m*n + mk*m*k + nk*n*k
+        logger.info(f'Generated a new experiment file for the dgemm calibration')
+        logger.info(f'Estimated duration    : {total_duration*3:.2f} s')
+        logger.info(f'Estimated performance : {total_flops/total_duration*1e-9:.2f} Gflop/s')
         return [{
                 'operation': 'dgemm',
                 'm': m,
