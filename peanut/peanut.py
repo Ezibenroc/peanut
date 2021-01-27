@@ -485,7 +485,7 @@ class Job:
         'production': ['graphique', 'graoully', 'grimani', 'grele', 'grvingt'],
     }
     special_types = {
-        'exotic': ['pyxis']
+        'exotic': ['pyxis', 'troll', 'gemini']
     }
     cluster_queues = {cluster: queue for queue, cluster_list in special_queues.items() for cluster in cluster_list}
     cluster_queues = collections.defaultdict(lambda: 'default', cluster_queues)
