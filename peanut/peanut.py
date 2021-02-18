@@ -469,7 +469,7 @@ class Job:
     deployment_images = ['debian%d-x64-%s' % (version, mode) for version in [9, 10] for mode in ['min', 'base', 'nfs', 'big']]
     deployment_images += ['debian%d-arm64-%s' % (version, mode) for version in [10] for mode in ['min', 'base', 'nfs', 'big']]
     clusters = {
-        'grenoble': ['dahu', 'yeti', 'troll'],
+        'grenoble': ['dahu', 'drac', 'yeti', 'troll'],
         'lyon': ['sagittaire', 'hercule', 'orion', 'taurus', 'nova', 'pyxis'],
         'nancy': ['griffon', 'graphene', 'graphite', 'grimoire', 'grisou', 'graphique', 'graoully', 'grimani', 'grele',
                   'grvingt', 'gros'],
@@ -485,7 +485,7 @@ class Job:
         'production': ['graphique', 'graoully', 'grimani', 'grele', 'grvingt'],
     }
     special_types = {
-        'exotic': ['pyxis', 'troll', 'gemini']
+        'exotic': ['pyxis', 'drac', 'troll', 'gemini']
     }
     cluster_queues = {cluster: queue for queue, cluster_list in special_queues.items() for cluster in cluster_list}
     cluster_queues = collections.defaultdict(lambda: 'default', cluster_queues)
