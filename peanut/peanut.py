@@ -468,6 +468,7 @@ class Job:
     auto_oardel = False
     deployment_images = ['debian%d-x64-%s' % (version, mode) for version in [9, 10] for mode in ['min', 'base', 'nfs', 'big']]
     deployment_images += ['debian%d-arm64-%s' % (version, mode) for version in [10] for mode in ['min', 'base', 'nfs', 'big']]
+    deployment_images += ['debian%d-ppc64-%s' % (version, mode) for version in [10] for mode in ['min', 'base', 'nfs', 'big']]
     clusters = {
         'grenoble': ['dahu', 'drac', 'yeti', 'troll'],
         'lyon': ['sagittaire', 'hercule', 'orion', 'taurus', 'nova', 'pyxis'],
