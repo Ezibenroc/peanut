@@ -639,6 +639,7 @@ class Job:
         deploy_str = '-t deploy ' if deploy else '-t allow_classic_ssh'
         queue_str = '-q %s ' % queue if queue else ''
         cmd = 'oarsub --checkpoint 120 -n "%s" %s%s -l "%s"' % (name, queue_str, deploy_str, constraint)
+        cmd += " -t monitor='bmc_.*'"
         if type_:
             cmd += ' -t %s' % type_
         if script:
