@@ -797,7 +797,7 @@ class Job:
         self.git_clone('https://github.com/Ezibenroc/ratatouille.git', 'ratatouille',
                         checkout='0.0.7')
         # pandas is a minor dependency, required for ratatouille merge
-        if 'arm' in self.deploy:  # pandas is way too long to install with pip on arm, let's install with apt
+        if 'debian10' in self.deploy:  # pandas is way too long to install with pip on arm, let's install with apt
             self.apt_install('python3-pandas')
         else:  # on x86 architectures, the pip installation is fast enough, so let's use it to have a more recent version
             self.nodes.run('pip3 install pandas')
