@@ -801,6 +801,7 @@ class Job:
             self.apt_install('python3-pandas')
         else:  # on x86 architectures, the pip installation is fast enough, so let's use it to have a more recent version
             self.nodes.run('pip3 install pandas')
+        self.nodes.run('rm pyproject.toml', directory='ratatouille')  # otherwise pip tries to install everything...
         self.nodes.run('pip3 install .', directory='ratatouille')
         self.nodes.run('ratatouille --git-version')
         command = 'ratatouille collect -t %d all monitoring.csv' % period
