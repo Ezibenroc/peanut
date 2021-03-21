@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4625676.svg)](https://doi.org/10.5281/zenodo.4625676)
+
 # Installation
 
 A quick way to install `peanut` is with `pip`:
