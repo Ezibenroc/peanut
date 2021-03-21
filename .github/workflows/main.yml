@@ -1,0 +1,34 @@
+name: Peanut
+
+on: [push]
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'push' && contains(github.ref, '/tags/')
+        steps:
+            - name: Set up the repository
+              uses: actions/checkout@v2
+            - name: Set up Python ${{ matrix.python-version }}
+              uses: actions/setup-python@v2
+              with:
+                  python-version: 3.7
+            - name: Install dependencies
+              run: |
+                python --version
+                pip install --upgrade pip
+                pip --version
+                pip install --upgrade --upgrade-strategy eager twine wheel
+                pip freeze
+            - name: Build
+              run: |
+                python setup.py bdist_wheel
+                twine check dist/*
+            - name: Upload the package to the release
+              uses: svenstaro/upload-release-action@v2
+              with:
+                  repo_token: ${{ secrets.GITHUB_TOKEN }}
+                  file: dist/*.whl
+                  overwrite: true
+                  file_glob: true
+                  tag: ${{ github.ref }}
