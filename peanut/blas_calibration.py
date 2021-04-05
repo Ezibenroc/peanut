@@ -215,7 +215,7 @@ class BLASCalibration(Job):
         logger.info(f'Generated a new experiment file for the dgemm calibration')
         logger.info(f'Estimated duration    : {total_duration*3:.2f} s')
         logger.info(f'Estimated performance : {total_flops/total_duration*1e-9:.2f} Gflop/s')
-        return [{
+        result = [{
                 'operation': 'dgemm',
                 'm': m,
                 'n': n,
@@ -224,6 +224,9 @@ class BLASCalibration(Job):
                 'ldb': max(m, n, k),
                 'ldc': max(m, n, k)
             } for (m, n, k) in sizes]
+        alloc_size = cls.get_alloc_size(result)
+        logger.info(f'Estimated allocation  : {alloc_size*1e-9:.2f} GB per core')
+        return result
 
     @classmethod
     def initialization_patch(cls, value):
