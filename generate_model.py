@@ -13,8 +13,7 @@ from cashew import archive_extraction as ae
 
 
 def compute_reg(df):
-    lr.compute_variable_products(df, 'mnk')
-    reg = lr.regression(df, 'duration', ['mnk', 'mn', 'mk', 'nk'])
+    reg = lr.regression(df, lr.compute_dgemm_reg)
     for tmp in reg:
         for key, val in tmp.items():
             if isinstance(val, (numpy.int, numpy.int64)):
@@ -49,7 +48,7 @@ def compute_reg(df):
 
 def main(archive_file, model_file):
     t1 = time.time()
-    df = ae.read_archive(archive_file, 'result.csv')
+    df = ae.read_performance(archive_file)
     t2 = time.time()
     print('Extracted archive in %.2f seconds' % (t2-t1))
     reg = compute_reg(df)

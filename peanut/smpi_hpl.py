@@ -70,7 +70,7 @@ def parse_smpi(output):
 
 
 def model_to_c_code(model):
-    cols = ['intercept', 'mnk', 'mn', 'mk', 'nk']
+    cols = ['intercept', 'mnk', 'mn', 'mk', 'nk', 'm', 'n', 'k']
     cols = cols + ['%s_residual' % c for c in cols]
     def get_reg(reg, residual):
         if residual:
