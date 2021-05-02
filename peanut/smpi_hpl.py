@@ -325,7 +325,7 @@ index dd235b7..ab40276 100644
 -    double coefficient = random_halfnormal_shifted(mu, sigma);
 +    double coefficient = mu;
      if(coefficient > 0) {
-         smpi_execute_benched(coefficient);
+         usleep((useconds_t)(coefficient*1e6));
      }
  }
 
@@ -333,7 +333,7 @@ index dd235b7..ab40276 100644
 -    double coefficient = random_halfnormal_shifted(mu, sigma);
 +    double coefficient = mu;
      if(coefficient > 0 && size > 0) {
-         smpi_execute_benched(size * coefficient);
+         usleep((useconds_t)(size*coefficient*1e6));
      }
     '''
 
