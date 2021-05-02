@@ -11,9 +11,17 @@ import numpy
 from cashew import linear_regression as lr
 from cashew import archive_extraction as ae
 
+def my_dgemm_reg(df):
+    df = df.copy()
+    lr.compute_variable_products(df, 'mnk')
+    reg = lr.compute_full_reg(df, 'duration', ['mnk', 'mn', 'mk', 'nk'])
+    total_flop = (2 * df['m'] * df['n'] * df['k']).sum()
+    total_time = df['duration'].sum()
+    reg['mean_gflops'] = total_flop / total_time * 1e-9
+    return reg
 
 def compute_reg(df):
-    reg = lr.regression(df, lr.compute_dgemm_reg)
+    reg = lr.regression(df, my_dgemm_reg)
     for tmp in reg:
         for key, val in tmp.items():
             if isinstance(val, (numpy.int, numpy.int64)):
@@ -21,7 +29,7 @@ def compute_reg(df):
             elif isinstance(val, (numpy.float, numpy.float64)):
                 tmp[key] = float(tmp[key])
     result = {'info': {}}
-    for key in ['cluster', 'function', 'jobid', 'expfile_hash', 'start_time']:
+    for key in ['cluster', 'jobid', 'expfile_hash', 'start_time']:
         values = {tmp[key] for tmp in reg}
         assert len(values) == 1
         result['info'][key] = values.pop()
