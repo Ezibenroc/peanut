@@ -105,9 +105,9 @@ class MPICalibration(Job):
 
     @classmethod
     def gen_exp(cls):
-        sizes_com = {int(10**random.uniform(0, 6)) for _ in range(1000)}
+        sizes_com = {int(10**random.uniform(0, 9)) for _ in range(1000)}
         sizes_test = {int(10**random.uniform(0, 4)) for _ in range(50)}
         exp = list(itertools.product(cls.op_com, sizes_com)) + list(itertools.product(cls.op_test, sizes_test))
-        exp *= 50
+        exp *= 5
         random.shuffle(exp)
         return [{'operation': op, 'size': size} for op, size in exp]
