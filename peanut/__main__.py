@@ -16,6 +16,7 @@ from .sw4lite import SW4lite
 from .simdjson import Simdjson
 from .mpi_ring import MPIRing
 from .memory_calibration import MemoryCalibration
+from .empty import Empty
 
 classes = [
     MPICalibration,
@@ -30,6 +31,7 @@ classes = [
     Simdjson,
     MPIRing,
     MemoryCalibration,
+    Empty,
 ]
 
 entry_points = {cls.__name__: cls.main for cls in classes}
