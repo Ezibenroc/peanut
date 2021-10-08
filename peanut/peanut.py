@@ -646,6 +646,9 @@ class Job:
             if reservation is not None:
                 if reservation in {'day', 'night'}:
                     cmd += ' -t %s' % reservation
+                elif reservation == 'now':
+                    date = frontend.run_unique('date "+%Y-%m-%d %H:%M:%S"').stdout.strip()
+                    cmd += ' -r "%s"' % date
                 else:
                     try:
                         date = datetime.datetime.strptime(reservation, '%Y-%m-%d %H:%M:%S')
